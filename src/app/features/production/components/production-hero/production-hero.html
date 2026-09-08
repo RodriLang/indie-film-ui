@@ -1,0 +1,43 @@
+<article
+  class="hero"
+  [class.has-landscape]="!!production().landscapeArtworkUrl && !landscapeFailed()"
+  [attr.data-title-position]="production().titleArtPosition ?? 'BOTTOM'"
+  [style.--focal-x.%]="production().posterFocalX * 100"
+  [style.--focal-y.%]="production().posterFocalY * 100"
+>
+  @if (production().posterUrl && !posterFailed()) {
+    <img class="hero-image hero-image--poster" [src]="production().posterUrl" [alt]="production().title" fetchpriority="high" (error)="posterFailed.set(true)" />
+  }
+  @if (production().landscapeArtworkUrl && !landscapeFailed()) {
+    <img class="hero-image hero-image--landscape" [src]="production().landscapeArtworkUrl" [alt]="production().title" fetchpriority="high" (error)="landscapeFailed.set(true)" />
+  }
+
+  <div class="hero-wash"></div>
+
+  <div class="hero-content">
+    @if (production().titleArtUrl && !titleArtFailed()) {
+      <img class="title-art" [src]="production().titleArtUrl" [alt]="production().title" (error)="titleArtFailed.set(true)" />
+    } @else {
+      <h1>{{ production().title }}</h1>
+    }
+
+    <div class="hero-meta">
+      <span>{{ typeLabel() }}</span>
+      @if (production().releaseYear) { <span>{{ production().releaseYear }}</span> }
+      @if (production().structure === 'EPISODIC') {
+        <span class="series"><svg lucideLayers3></svg> Serie</span>
+      }
+    </div>
+
+    <div class="hero-actions">
+      <a class="watch-button" [routerLink]="['/production', production().slug]">
+        <svg lucidePlay></svg>
+        Ver
+      </a>
+      <a class="creator-link" [routerLink]="['/creator', production().submittedBy.username]">
+        {{ production().submittedBy.displayName }}
+        <svg lucideArrowRight></svg>
+      </a>
+    </div>
+  </div>
+</article>

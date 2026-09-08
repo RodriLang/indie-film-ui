@@ -1,0 +1,232 @@
+<section class="moderation-detail fade-enter">
+  <div class="page-container detail-container">
+    <a
+      class="back-link"
+      routerLink="/moderation"
+      queryParamsHandling="preserve"
+    >
+      <svg lucideArrowLeft></svg>
+      Moderación
+    </a>
+
+    @if (loading()) {
+    <div class="detail-state">Cargando…</div>
+    } @else if (error() && !production()) {
+    <div class="detail-state error">{{ error() }}</div>
+    } @else if (production(); as item) {
+    <header class="detail-header">
+      <div class="poster">
+        @if (item.posterUrl) {
+        <img [src]="item.posterUrl" [alt]="item.title" />
+        }
+      </div>
+
+      <div class="header-copy">
+        <span>{{ moderationLabel(item) }}</span>
+        <h1>{{ item.title }}</h1>
+        <p>
+          {{ item.submittedBy.displayName }} · @{{ item.submittedBy.username }}
+        </p>
+        <small
+          >{{ typeLabel(item) }} · {{ structureLabel(item) }} · Contenido
+          vertical</small
+        >
+      </div>
+    </header>
+
+    @if (error()) {
+    <div class="feedback error">{{ error() }}</div>
+    }
+
+    <div class="review-layout">
+      <main>
+        <section class="review-section videos-section">
+          <div class="section-heading">
+            <h2>Videos</h2>
+            <span
+              >Verificá reproducción, orientación vertical y contenido.</span
+            >
+          </div>
+
+          <div class="video-review-list">
+            @for (video of item.videos; track video.id) {
+            <article class="video-review">
+              <div class="video-copy">
+                <div>
+                  <strong>
+                    {{ video.title || videoKindLabel(video.kind) }}
+                  </strong>
+
+                  <span>{{ videoKindLabel(video.kind) }}</span>
+                </div>
+
+                @if (classificationChanged(video)) {
+                <small class="classification-changed">
+                  Clasificación modificada
+                </small>
+                }
+              </div>
+
+              @if (playbackFor(video.id); as playback) {
+              <app-video-player
+                [playback]="playback"
+                [title]="video.title || item.title"
+              />
+              } @else if (playbackErrorFor(video.id); as playbackError) {
+              <div class="video-playback-state error">{{ playbackError }}</div>
+              } @else {
+              <div class="video-playback-state">Cargando video…</div>
+              }
+
+              <div class="classification-panel">
+                <label>
+                  <span>Clasificación</span>
+
+                  <select
+                    [value]="classificationFor(video).maturity"
+                    [disabled]="item.moderationStatus !== 'PENDING'"
+                    (change)="setMaturity(video.id, $event)"
+                  >
+                    @for ( option of contentMaturities; track option.value ) {
+                    <option [value]="option.value">{{ option.label }}</option>
+                    }
+                  </select>
+                </label>
+
+                <div class="advisories-field">
+                  <span>Advertencias</span>
+
+                  <div class="advisory-list">
+                    @for ( option of contentAdvisories; track option.value ) {
+                    <button
+                      type="button"
+                      class="advisory-chip"
+                      [class.selected]="
+              advisorySelected(video, option.value)
+            "
+                      [disabled]="
+              item.moderationStatus !== 'PENDING'
+            "
+                      (click)="
+              toggleAdvisory(video, option.value)
+            "
+                    >
+                      {{ option.label }}
+                    </button>
+                    }
+                  </div>
+                </div>
+              </div>
+            </article>
+            }
+          </div>
+        </section>
+
+        @if (item.description) {
+        <section class="review-section">
+          <h2>Sobre la obra</h2>
+          <p class="description">{{ item.description }}</p>
+        </section>
+        } @if (item.credits.length > 0) {
+        <section class="review-section">
+          <h2>Créditos</h2>
+          <div class="credits-list">
+            @for (credit of item.credits; track credit.id) {
+            <div>
+              <span>{{ credit.roleDetail || creditLabel(credit.role) }}</span>
+              <strong
+                >{{ credit.user?.displayName || credit.personName }}</strong
+              >
+            </div>
+            }
+          </div>
+        </section>
+        }
+
+        <section class="review-section history-section">
+          <div class="section-heading">
+            <h2>Historial</h2>
+            <span>Las decisiones anteriores permanecen registradas.</span>
+          </div>
+
+          @if (reviews().length === 0) {
+          <p class="history-empty">Todavía no hay decisiones registradas.</p>
+          } @else {
+          <div class="history-list">
+            @for (review of reviews(); track review.id) {
+            <article>
+              <app-avatar
+                [name]="review.reviewedBy.displayName"
+                [imageUrl]="review.reviewedBy.avatarUrl || null"
+                [size]="36"
+              />
+              <div>
+                <strong>{{ decisionLabel(review) }}</strong>
+                <span
+                  >{{ review.reviewedBy.displayName }} · {{
+                  dateLabel(review.reviewedAt) }}</span
+                >
+                @if (review.note) {
+                <p>{{ review.note }}</p>
+                } @if (review.classificationAdjustments) {
+                <div class="classification-history">
+                  <strong>Ajustes de clasificación</strong>
+                  <p>{{ review.classificationAdjustments }}</p>
+                </div>
+                }
+              </div>
+            </article>
+            }
+          </div>
+          }
+        </section>
+      </main>
+
+      <aside class="review-actions">
+        @if (item.moderationStatus === 'PENDING') {
+        <div class="approval-block">
+          <strong>Decisión</strong>
+          <button
+            class="approve"
+            type="button"
+            (click)="approve()"
+            [disabled]="busy()"
+          >
+            <svg lucideCheck></svg>
+            Aprobar y publicar
+          </button>
+        </div>
+
+        <form [formGroup]="rejectForm" (ngSubmit)="reject()">
+          <label>
+            <span>Motivo del rechazo</span>
+            <textarea
+              rows="5"
+              formControlName="note"
+              placeholder="Ej. El video no tiene formato vertical"
+            ></textarea>
+          </label>
+          <button
+            class="reject"
+            type="submit"
+            [disabled]="busy() || rejectForm.invalid"
+          >
+            <svg lucideX></svg>
+            Rechazar
+          </button>
+        </form>
+        } @else {
+        <div class="resolved-block">
+          <svg lucideClock3></svg>
+          <strong>Revisión finalizada</strong>
+          <span
+            >Consultá el historial para ver quién tomó la decisión y
+            cuándo.</span
+          >
+        </div>
+        }
+      </aside>
+    </div>
+    }
+  </div>
+</section>

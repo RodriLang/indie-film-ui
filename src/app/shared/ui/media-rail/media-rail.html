@@ -1,0 +1,11 @@
+<div
+  #viewport
+  class="media-rail__viewport"
+  role="region"
+  tabindex="0"
+  [attr.aria-label]="ariaLabel()"
+  (scroll)="onScroll()"
+  (keydown)="onKeydown($event)"
+>
+  <ng-content />
+</div>

@@ -1,0 +1,180 @@
+<main class="watch-page" (click)="toggleControls()">
+  @if (loading() || playbackLoading()) {
+  <div class="watch-state"></div>
+  } @else if (error()) {
+  <div class="watch-state error-state">{{ error() }}</div>
+  } @else if (playbackAccess(); as access) {
+  <section class="watch-state access-state" (click)="$event.stopPropagation()">
+    @switch (access) { @case ('LOGIN_REQUIRED') {
+    <span class="access-badge">18+</span>
+    <h1>Contenido para mayores de 18 años</h1>
+    <p>Iniciá sesión para continuar.</p>
+
+    <button type="button" (click)="login()">Iniciar sesión</button>
+    } @case ('BIRTH_DATE_REQUIRED') {
+    <span class="access-badge">18+</span>
+    <h1>Confirmá tu edad</h1>
+    <p>
+      Necesitamos tu fecha de nacimiento para verificar si podés acceder a este
+      contenido.
+    </p>
+
+    <input
+      type="date"
+      [value]="birthDateInput()"
+      (input)="birthDateInput.set($any($event.target).value)"
+    />
+
+    <button
+      type="button"
+      [disabled]="!birthDateInput() || accessBusy()"
+      (click)="saveBirthDate()"
+    >
+      Continuar
+    </button>
+    } @case ('UNDERAGE') {
+    <span class="access-badge">18+</span>
+    <h1>Contenido no disponible</h1>
+    <p>Este video está clasificado para mayores de 18 años.</p>
+    } @case ('ADULT_CONSENT_REQUIRED') {
+    <span class="access-badge">18+</span>
+    <h1>Contenido para adultos</h1>
+    <p>
+      Este contenido puede incluir material destinado exclusivamente a personas
+      mayores de 18 años.
+    </p>
+
+    <button
+      type="button"
+      [disabled]="accessBusy()"
+      (click)="grantAdultContentConsent()"
+    >
+      Soy mayor de 18 y quiero continuar
+    </button>
+    } @case ('UNAVAILABLE') {
+    <h1>Video no disponible</h1>
+    <p>Este video no puede reproducirse en este momento.</p>
+    } }
+
+    <button class="access-back" type="button" (click)="back($event)">
+      Volver
+    </button>
+  </section>
+  } @else if (video(); as currentVideo) {
+  <div class="video-stage">
+    @if (playback(); as currentPlayback) {
+    <app-video-player
+      [playback]="currentPlayback"
+      [title]="
+    currentVideo.title ||
+    production()?.title ||
+    'Video'
+  "
+      [startAt]="resumePositionSeconds()"
+      [autoplay]="true"
+      [muted]="muted()"
+      [controls]="false"
+      (timeChanged)="onVideoTimeChanged($event)"
+      (progress)="onVideoProgress($event)"
+      (playingChanged)="onPlayingChanged($event)"
+      (unavailable)="onPlayerUnavailable()"
+      (autoplayMuted)="onAutoplayMuted()"
+    />
+    }
+  </div>
+
+  <button
+    class="control-surface"
+    type="button"
+    aria-label="Mostrar controles"
+    (click)="showControls(); $event.stopPropagation()"
+  ></button>
+
+  <div
+    class="watch-controls"
+    [class.visible]="controlsVisible()"
+    (click)="hideControls()"
+  >
+    <button
+      class="control-back"
+      type="button"
+      aria-label="Volver"
+      (click)="back($event)"
+    >
+      <svg lucideArrowLeft></svg>
+    </button>
+
+    <button
+      class="control-play"
+      type="button"
+      [attr.aria-label]="playing() ? 'Pausar' : 'Reproducir'"
+      (click)="togglePlayback($event)"
+    >
+      @if (playing()) {
+      <svg lucidePause></svg>
+      } @else {
+      <svg lucidePlay></svg>
+      }
+    </button>
+
+    <button
+      class="control-mute"
+      type="button"
+      [attr.aria-label]="muted() ? 'Activar sonido' : 'Silenciar'"
+      (click)="toggleMute($event)"
+    >
+      @if (muted()) {
+      <svg lucideVolumeX></svg>
+      } @else {
+      <svg lucideVolume2></svg>
+      }
+    </button>
+
+    @if (production(); as item) {
+    <div class="like-control" (click)="$event.stopPropagation()">
+      <button
+        class="control-like"
+        type="button"
+        [class.liked]="item.likedByCurrentUser"
+        [disabled]="liking()"
+        [attr.aria-label]="
+              item.likedByCurrentUser
+                ? 'Quitar Me gusta'
+                : 'Me gusta'
+            "
+        [attr.aria-pressed]="item.likedByCurrentUser"
+        (click)="toggleLike($event)"
+      >
+        <svg lucideHeart></svg>
+      </button>
+
+      <span class="like-count"> {{ item.likeCount }} </span>
+    </div>
+    }
+
+    <div class="watch-timeline" (click)="$event.stopPropagation()">
+      <input
+        type="range"
+        min="0"
+        [max]="duration() || 0"
+        step="0.1"
+        [value]="currentTime()"
+        [style.--progress.%]="
+          duration() > 0
+            ? (currentTime() / duration()) * 100
+            : 0
+        "
+        aria-label="Posición del video"
+        (input)="seek($event)"
+      />
+
+      <div class="watch-time">
+        <span>{{ formatTime(currentTime()) }}</span>
+        <span>{{ formatTime(duration()) }}</span>
+      </div>
+    </div>
+  </div>
+  } @else {
+  <div class="watch-state error-state">Video no disponible.</div>
+  }
+</main>

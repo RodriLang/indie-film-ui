@@ -1,0 +1,68 @@
+<section class="explore fade-enter">
+  <div class="page-container home-container">
+    @if (loading()) {
+      <div class="stage-skeleton"></div>
+      <div class="rail-skeletons">
+        <div></div><div></div><div></div>
+      </div>
+    } @else if (error()) {
+      <div class="state-card">
+        <strong>No pudimos cargar el inicio</strong>
+        <p>{{ error() }}</p>
+      </div>
+    } @else if (productions().length === 0) {
+      <div class="state-card empty-home">
+        <strong>Todavía no hay producciones publicadas</strong>
+      </div>
+    } @else {
+      @if (stageProductions().length > 0) {
+        <app-primary-stage [productions]="stageProductions()" />
+      }
+
+      @if (featured().length > 0) {
+        <section class="home-section">
+          <div class="section-heading">
+            <h2>Destacados</h2>
+          </div>
+          <app-media-rail variant="featured" ariaLabel="Producciones destacadas">
+            @for (production of featured(); track production.id; let index = $index) {
+              <app-media-rail-item>
+                <app-production-card [production]="production" variant="featured" [priority]="index < 2" />
+              </app-media-rail-item>
+            }
+          </app-media-rail>
+        </section>
+      }
+
+      @if (verticalDiscoveries().length > 0) {
+        <section class="home-section">
+          <div class="section-heading">
+            <h2>Nuevas miradas</h2>
+          </div>
+          <app-media-rail variant="vertical" ariaLabel="Nuevas producciones verticales">
+            @for (production of verticalDiscoveries(); track production.id) {
+              <app-media-rail-item>
+                <app-production-card [production]="production" variant="vertical" />
+              </app-media-rail-item>
+            }
+          </app-media-rail>
+        </section>
+      }
+
+      @if (selection().length > 0) {
+        <section class="home-section">
+          <div class="section-heading">
+            <h2>Selección</h2>
+          </div>
+          <app-media-rail variant="featured" ariaLabel="Selección de producciones">
+            @for (production of selection(); track production.id) {
+              <app-media-rail-item>
+                <app-production-card [production]="production" variant="featured" />
+              </app-media-rail-item>
+            }
+          </app-media-rail>
+        </section>
+      }
+    }
+  </div>
+</section>

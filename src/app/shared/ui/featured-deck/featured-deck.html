@@ -1,0 +1,15 @@
+<div
+  #viewport
+  class="deck"
+  role="region"
+  tabindex="0"
+  [attr.aria-label]="ariaLabel()"
+  (scroll)="onScroll()"
+  (keydown)="onKeydown($event)"
+>
+  @for (production of productions(); track production.id; let index = $index) {
+    <div class="deck-item">
+      <app-production-card [production]="production" variant="featured" [priority]="index === 0" />
+    </div>
+  }
+</div>

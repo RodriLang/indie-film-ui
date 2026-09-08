@@ -1,0 +1,146 @@
+:host {
+  display: block;
+  min-height: 100dvh;
+}
+
+.app-shell {
+  min-height: 100dvh;
+}
+
+.app-header {
+  height: calc(
+    var(--mobile-header-height) +
+    env(safe-area-inset-top)
+  );
+  padding:
+    env(safe-area-inset-top)
+    var(--page-gutter)
+    0;
+
+  background: color-mix(
+    in srgb,
+    var(--color-bg) 94%,
+    transparent
+  );
+  backdrop-filter: blur(18px);
+
+  display: flex;
+  align-items: center;
+
+  position: sticky;
+  top: 0;
+  z-index: var(--z-header);
+}
+
+.brand {
+  color: var(--color-text);
+
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+
+  font-size: 1rem;
+  font-weight: 720;
+  letter-spacing: -0.045em;
+  text-decoration: none;
+
+  img {
+    width: 26px;
+    height: 26px;
+    border-radius: 8px;
+  }
+}
+
+.app-content {
+  min-width: 0;
+
+  padding-bottom: calc(
+    var(--mobile-nav-height) +
+    env(safe-area-inset-bottom) +
+    42px
+  );
+}
+
+.app-footer-nav {
+  width: min(calc(100% - 32px), 480px);
+  min-height: var(--mobile-nav-height);
+
+  padding: 5px 8px;
+
+  border: 1px solid var(--color-border-strong);
+  border-radius: 22px;
+
+  background: color-mix(
+    in srgb,
+    var(--color-surface-1) 92%,
+    transparent
+  );
+
+  box-shadow: var(--shadow-floating);
+  backdrop-filter: blur(18px);
+
+  display: flex;
+  align-items: stretch;
+
+  position: fixed;
+  left: 50%;
+  bottom: max(12px, env(safe-area-inset-bottom));
+  z-index: var(--z-nav);
+
+  transform: translateX(-50%);
+
+  > a {
+    min-width: 0;
+    min-height: 48px;
+
+    flex: 1 1 0;
+
+    border-radius: 16px;
+
+    color: var(--color-text-subtle);
+
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+
+    font-size: 0.61rem;
+    font-weight: 600;
+    text-decoration: none;
+
+    transition:
+      color var(--motion-fast),
+      background var(--motion-fast);
+
+    svg {
+      width: 20px;
+      height: 20px;
+      stroke-width: 1.75;
+    }
+
+    &:hover,
+    &.active {
+      background: rgba(255, 255, 255, 0.055);
+      color: var(--color-text);
+    }
+  }
+}
+
+@media (min-width: 900px) {
+  .app-header {
+    padding-right: 32px;
+    padding-left: 32px;
+  }
+
+  .app-footer-nav {
+    width: 420px;
+    bottom: 20px;
+  }
+
+  .app-content {
+    padding-bottom: calc(
+      var(--mobile-nav-height) + 54px
+    );
+  }
+}

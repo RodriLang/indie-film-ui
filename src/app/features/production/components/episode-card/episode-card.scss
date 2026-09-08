@@ -1,0 +1,78 @@
+.episode-card {
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--color-text);
+  display: grid;
+  gap: 8px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.thumb {
+  aspect-ratio: 5 / 8;
+  border: 1px solid transparent;
+  border-radius: var(--radius-lg);
+  background: linear-gradient(145deg, #2d3340, #111317 75%);
+  overflow: hidden;
+  position: relative;
+  transition: border-color var(--motion-fast), transform var(--motion-fast);
+
+  .active & {
+    border-color: var(--color-accent);
+  }
+
+  .episode-card:active & {
+    transform: scale(0.98);
+  }
+
+  img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+}
+
+.play {
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-full);
+  background: rgba(0, 0, 0, 0.46);
+  backdrop-filter: blur(10px);
+  display: grid;
+  place-items: center;
+  position: absolute;
+  right: 9px;
+  bottom: 9px;
+
+  svg {
+    width: 14px;
+    height: 14px;
+    fill: currentColor;
+  }
+}
+
+.number {
+  min-width: 25px;
+  height: 25px;
+  padding: 0 7px;
+  border-radius: var(--radius-full);
+  background: rgba(0, 0, 0, 0.5);
+  display: grid;
+  place-items: center;
+  position: absolute;
+  top: 9px;
+  left: 9px;
+  font-size: 0.68rem;
+  font-weight: 720;
+}
+
+strong {
+  overflow: hidden;
+  font-size: clamp(0.72rem, 5.8cqw, 0.88rem);
+  font-weight: 650;
+  letter-spacing: -0.02em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

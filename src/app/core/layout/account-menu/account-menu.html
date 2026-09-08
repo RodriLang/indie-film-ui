@@ -1,0 +1,94 @@
+<div class="account-menu" (click)="$event.stopPropagation()">
+  <button
+    class="account-trigger"
+    type="button"
+    aria-haspopup="menu"
+    [attr.aria-expanded]="open()"
+    [attr.aria-label]="authStore.authenticated()
+      ? 'Abrir menú de cuenta'
+      : 'Iniciar sesión o crear cuenta'"
+    (click)="toggle($event)"
+  >
+    <svg lucideUser></svg>
+    <span>Cuenta</span>
+  </button>
+
+  @if (open()) {
+  <section class="account-panel" role="menu" aria-label="Cuenta y acciones">
+    @if (authStore.user(); as user) {
+    <header class="account-identity">
+      <app-avatar
+        [name]="user.displayName"
+        [imageUrl]="user.avatarUrl || null"
+        [size]="42"
+      />
+      <div>
+        <strong>{{ user.displayName }}</strong>
+        <small>@{{ user.username }}</small>
+        <span>{{ roleLabel() }}</span>
+      </div>
+    </header>
+
+    <nav class="account-actions" aria-label="Acciones de cuenta">
+      <a routerLink="/profile" role="menuitem" (click)="close()">
+        <svg lucideUser></svg>
+        <span>Mi perfil</span>
+      </a>
+
+      @if (authStore.canCreate()) {
+      <a routerLink="/publish" role="menuitem" (click)="close()">
+        <svg lucidePlus></svg>
+        <span>Studio</span>
+      </a>
+      } @if (authStore.canModerate()) {
+      <a routerLink="/moderation" role="menuitem" (click)="close()">
+        <svg lucideShieldCheck></svg>
+        <span>Moderación</span>
+      </a>
+      } @if (authStore.canAdministerUsers()) {
+      <a routerLink="/admin/users" role="menuitem" (click)="close()">
+        <svg lucideUsers></svg>
+        <span>Usuarios</span>
+      </a>
+      }
+    </nav>
+
+    <div class="account-separator"></div>
+
+    <button
+      class="logout-action"
+      type="button"
+      role="menuitem"
+      (click)="logout()"
+    >
+      <svg lucideLogOut></svg>
+      <span>Cerrar sesión</span>
+    </button>
+    } @else {
+    <header class="anonymous-heading">
+      <span class="anonymous-icon"><svg lucideUser></svg></span>
+      <div>
+        <strong>Tu cuenta</strong>
+        <small>Entrá para guardar likes y participar.</small>
+      </div>
+    </header>
+
+    <nav class="account-actions" aria-label="Acceso a cuenta">
+      <a routerLink="/auth" role="menuitem" (click)="close()">
+        <svg lucideLogIn></svg>
+        <span>Iniciar sesión</span>
+      </a>
+      <a
+        routerLink="/auth"
+        [queryParams]="{ mode: 'register' }"
+        role="menuitem"
+        (click)="close()"
+      >
+        <svg lucidePlus></svg>
+        <span>Crear cuenta</span>
+      </a>
+    </nav>
+    }
+  </section>
+  }
+</div>

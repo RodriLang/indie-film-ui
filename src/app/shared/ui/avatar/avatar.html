@@ -1,0 +1,7 @@
+<div class="avatar" [attr.aria-label]="name()">
+  @if (imageUrl() && !imageFailed()) {
+    <img [src]="imageUrl()" [alt]="name()" (error)="imageFailed.set(true)" />
+  } @else {
+    <span aria-hidden="true">{{ initials() }}</span>
+  }
+</div>

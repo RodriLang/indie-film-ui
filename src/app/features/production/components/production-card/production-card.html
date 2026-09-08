@@ -1,0 +1,27 @@
+<article class="production-card">
+  <a class="card-link" [routerLink]="['/production', production().slug]" [attr.aria-label]="'Ver ' + production().title">
+    <div class="artwork" [attr.data-tone]="tone()">
+      @if (production().posterUrl && !imageFailed()) {
+        <img
+          class="artwork-image"
+          [src]="production().posterUrl"
+          [alt]="production().title"
+          [attr.loading]="priority() ? 'eager' : 'lazy'"
+          [attr.fetchpriority]="priority() ? 'high' : 'auto'"
+          (error)="onImageError()"
+        />
+      } @else {
+        <strong class="fallback-title">{{ production().title }}</strong>
+      }
+
+      @if (production().structure === 'EPISODIC') {
+        <span class="series-mark" aria-label="Serie"><svg lucideLayers3></svg></span>
+      }
+    </div>
+
+    <div class="card-copy">
+      <strong>{{ production().title }}</strong>
+      <span>{{ production().submittedBy.displayName }}</span>
+    </div>
+  </a>
+</article>

@@ -1,0 +1,6 @@
+:host {
+  min-width: 0;
+  flex: 0 0 var(--media-rail-card-width, 100%);
+  scroll-snap-align: start;
+  scroll-snap-stop: normal;
+}

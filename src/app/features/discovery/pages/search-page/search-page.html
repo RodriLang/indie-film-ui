@@ -1,0 +1,51 @@
+<section class="search-page fade-enter">
+  <div class="page-container">
+    <header class="search-header">
+      <h1>Buscar</h1>
+
+      <label class="search-box">
+        <svg lucideSearch aria-hidden="true"></svg>
+        <input #searchInput type="search" placeholder="Título, descripción..." [value]="query()" (input)="onQueryInput($event)" autofocus />
+        @if (query()) {
+          <button type="button" aria-label="Limpiar búsqueda" (click)="clearQuery(searchInput)">
+            <svg lucideX></svg>
+          </button>
+        }
+      </label>
+    </header>
+
+    <div class="type-filter" aria-label="Filtrar por tipo">
+      <button type="button" [class.active]="selectedType() === null" (click)="selectType(null)">Todo</button>
+      @for (option of typeOptions; track option.value) {
+        <button type="button" [class.active]="selectedType() === option.value" (click)="selectType(option.value)">
+          {{ option.label }}
+        </button>
+      }
+    </div>
+
+    @if (error()) {
+      <p class="message error">{{ error() }}</p>
+    }
+
+    @if (!loading() && productions().length === 0 && !error()) {
+      <div class="empty-state">
+        <strong>No encontramos producciones</strong>
+        <p>Probá con otro término o quitá el filtro.</p>
+      </div>
+    } @else {
+      <div class="results-grid">
+        @for (production of productions(); track production.id; let index = $index) {
+          <app-production-card [production]="production" variant="grid" [priority]="index < 4" />
+        }
+      </div>
+    }
+
+    @if (loading()) {
+      <div class="loading-row">Buscando…</div>
+    }
+
+    @if (!last() && !loading()) {
+      <button class="load-more" type="button" (click)="loadMore()">Ver más</button>
+    }
+  </div>
+</section>

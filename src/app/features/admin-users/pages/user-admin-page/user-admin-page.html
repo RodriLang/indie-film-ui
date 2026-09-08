@@ -1,0 +1,122 @@
+<section class="users-admin-page fade-enter">
+  <div class="page-container users-container">
+    <header class="users-header">
+      <div>
+        <span>Administración</span>
+        <h1>Usuarios</h1>
+      </div>
+      @if (!loading()) {
+        <strong>{{ totalElements() }}</strong>
+      }
+    </header>
+
+    <div class="users-toolbar">
+      <form class="search-box" (submit)="submitSearch($event)">
+        <svg lucideSearch></svg>
+        <input
+          type="search"
+          placeholder="Nombre, usuario o email"
+          [value]="query()"
+          (input)="updateQuery($event)"
+        />
+        <button type="submit">Buscar</button>
+      </form>
+
+      <div class="filters">
+        <label>
+          <span>Rol</span>
+          <select (change)="changeRoleFilter($event)">
+            <option value="">Todos</option>
+            @for (option of roleOptions; track option.value) {
+              <option [value]="option.value" [selected]="role() === option.value">{{ option.label }}</option>
+            }
+          </select>
+        </label>
+
+        <label>
+          <span>Estado</span>
+          <select (change)="changeStatusFilter($event)">
+            <option value="">Todos</option>
+            @for (option of statusOptions; track option.value) {
+              <option [value]="option.value" [selected]="status() === option.value">{{ option.label }}</option>
+            }
+          </select>
+        </label>
+      </div>
+    </div>
+
+    @if (error()) {
+      <p class="users-error">{{ error() }}</p>
+    }
+
+    @if (loading()) {
+      <div class="users-state">Cargando…</div>
+    } @else if (users().length === 0) {
+      <div class="users-state empty">
+        <svg lucideUsers></svg>
+        <strong>No encontramos usuarios con esos filtros.</strong>
+      </div>
+    } @else {
+      <div class="users-list">
+        <div class="users-list-head" aria-hidden="true">
+          <span>Usuario</span>
+          <span>Rol</span>
+          <span>Estado</span>
+          <span>Alta</span>
+        </div>
+
+        @for (user of users(); track user.id) {
+          <article class="user-row" [class.current-user]="user.id === authStore.user()?.id">
+            <div class="user-identity">
+              <app-avatar [name]="user.displayName" [imageUrl]="user.avatarUrl || null" [size]="42" />
+              <div>
+                <strong>{{ user.displayName }}</strong>
+                <span>@{{ user.username }}</span>
+                <small>{{ user.email }}</small>
+              </div>
+            </div>
+
+            <div class="role-cell">
+              <span class="mobile-label">Rol</span>
+              <select
+                [value]="user.role"
+                [disabled]="user.id === authStore.user()?.id || updatingUserId() !== null"
+                [attr.aria-label]="'Rol de ' + user.displayName"
+                (change)="changeUserRole(user, $event)"
+              >
+                @for (option of roleOptions; track option.value) {
+                  <option [value]="option.value">{{ option.label }}</option>
+                }
+              </select>
+              @if (user.id === authStore.user()?.id) {
+                <small>Tu cuenta</small>
+              }
+            </div>
+
+            <div class="status-cell">
+              <span class="mobile-label">Estado</span>
+              <span class="status-badge" [attr.data-status]="user.status">{{ statusLabel(user.status) }}</span>
+            </div>
+
+            <div class="created-cell">
+              <span class="mobile-label">Alta</span>
+              <span>{{ createdLabel(user.createdAt) }}</span>
+            </div>
+          </article>
+        }
+      </div>
+
+      @if (totalPages() > 1) {
+        <nav class="pagination" aria-label="Paginación de usuarios">
+          <button type="button" (click)="previousPage()" [disabled]="page() === 0 || loading()" aria-label="Página anterior">
+            <svg lucideChevronLeft></svg>
+          </button>
+          <span>{{ page() + 1 }} / {{ totalPages() }}</span>
+          <button type="button" (click)="nextPage()" [disabled]="page() + 1 >= totalPages() || loading()" aria-label="Página siguiente">
+            <svg lucideChevronRight></svg>
+          </button>
+        </nav>
+      }
+    }
+  </div>
+</section>

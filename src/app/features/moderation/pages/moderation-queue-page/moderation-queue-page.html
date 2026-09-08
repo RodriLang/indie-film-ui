@@ -1,0 +1,72 @@
+<section class="moderation-page fade-enter">
+  <div class="page-container moderation-container">
+    <header class="moderation-header">
+      <div>
+        <span>Moderación</span>
+        <h1>Revisión editorial</h1>
+      </div>
+      @if (!loading()) {
+        <strong>{{ total() }}</strong>
+      }
+    </header>
+
+    <nav class="moderation-tabs" aria-label="Estados de moderación">
+      @for (tab of tabs; track tab.value) {
+        <button
+          type="button"
+          [class.active]="activeStatus() === tab.value"
+          [attr.aria-current]="activeStatus() === tab.value ? 'page' : null"
+          (click)="selectStatus(tab.value)"
+        >
+          {{ tab.label }}
+        </button>
+      }
+    </nav>
+
+    @if (loading()) {
+      <div class="queue-state">Cargando…</div>
+    } @else if (error()) {
+      <div class="queue-state error">{{ error() }}</div>
+    } @else if (productions().length === 0) {
+      <div class="empty-state">
+        <svg lucideShieldCheck></svg>
+        <strong>{{ emptyLabel() }}</strong>
+      </div>
+    } @else {
+      <div class="moderation-list">
+        @for (production of productions(); track production.id) {
+          <a [routerLink]="['/moderation', production.slug]" queryParamsHandling="preserve">
+            <div class="poster">
+              @if (production.posterUrl) {
+                <img [src]="production.posterUrl" [alt]="production.title" />
+              }
+            </div>
+
+            <div class="item-copy">
+              <strong>{{ production.title }}</strong>
+              <span>{{ production.submittedBy.displayName }} · @{{ production.submittedBy.username }}</span>
+
+              @if (activeStatus() === 'PENDING') {
+                <small>
+                  {{ typeLabel(production) }} · {{ structureLabel(production) }}
+                  @if (production.submittedForReviewAt) { · Enviada {{ dateLabel(production.submittedForReviewAt) }} }
+                </small>
+              } @else {
+                <small>
+                  {{ activeStatus() === 'APPROVED' ? 'Aprobada' : 'Rechazada' }}
+                  @if (production.reviewedBy) { por {{ production.reviewedBy.displayName }} }
+                  @if (production.reviewedAt) { · {{ dateLabel(production.reviewedAt) }} }
+                </small>
+                @if (activeStatus() === 'REJECTED' && production.moderationNote) {
+                  <p>{{ production.moderationNote }}</p>
+                }
+              }
+            </div>
+
+            <svg class="chevron" lucideChevronRight></svg>
+          </a>
+        }
+      </div>
+    }
+  </div>
+</section>

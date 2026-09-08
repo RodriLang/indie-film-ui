@@ -1,0 +1,12 @@
+<button class="episode-card" type="button" [class.active]="active()" (click)="select()">
+  <div class="thumb">
+    @if (episode().videoAsset.thumbnailUrl && !imageFailed()) {
+      <img [src]="episode().videoAsset.thumbnailUrl" [alt]="label()" loading="lazy" (error)="imageFailed.set(true)" />
+    }
+    <span class="play"><svg lucidePlay></svg></span>
+    @if (episode().episodeNumber) {
+      <span class="number">{{ episode().episodeNumber }}</span>
+    }
+  </div>
+  <strong>{{ label() }}</strong>
+</button>

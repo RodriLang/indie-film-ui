@@ -1,0 +1,165 @@
+<section class="detail-page fade-enter">
+  <div class="page-container">
+    @if (loading()) {
+    <div class="detail-skeleton"></div>
+    } @else if (error()) {
+    <div class="state-card"><strong>{{ error() }}</strong></div>
+    } @else if (production(); as item) {
+    <header
+      #hero
+      class="detail-hero"
+      [class.has-landscape]="
+    !!item.landscapeArtworkUrl && !heroLandscapeFailed()
+  "
+      [attr.data-title-position]="item.titleArtPosition ?? 'BOTTOM'"
+      [style.--focal-x.%]="item.posterFocalX * 100"
+      [style.--focal-y.%]="item.posterFocalY * 100"
+    >
+      @if (item.posterUrl && !heroPosterFailed()) {
+      <img
+        class="hero-art hero-art--poster"
+        [src]="item.posterUrl"
+        [alt]="item.title"
+        (error)="heroPosterFailed.set(true)"
+      />
+      } @if ( item.landscapeArtworkUrl && !heroLandscapeFailed() ) {
+      <img
+        class="hero-art hero-art--landscape"
+        [src]="item.landscapeArtworkUrl"
+        [alt]="item.title"
+        (error)="heroLandscapeFailed.set(true)"
+      />
+      } @if (trailerPlayback(); as playback) {
+      <app-autoplay-trailer-player
+        [playback]="playback"
+        [muted]="trailerMuted()"
+        fit="cover"
+        (ended)="onTrailerEnded()"
+        (unavailable)="onTrailerUnavailable()"
+        (autoplayMuted)="onTrailerAutoplayMuted()"
+      />
+      }
+
+      <div class="hero-shade"></div>
+
+      @if (trailerPlayback()) {
+      <button
+        class="hero-sound"
+        type="button"
+        [attr.aria-label]="
+        trailerMuted()
+          ? 'Activar sonido del trailer'
+          : 'Silenciar trailer'
+      "
+        [attr.aria-pressed]="!trailerMuted()"
+        (click)="toggleTrailerSound($event)"
+      >
+        @if (trailerMuted()) {
+        <svg lucideVolumeX></svg>
+        } @else {
+        <svg lucideVolume2></svg>
+        }
+      </button>
+      }
+
+      <div class="hero-copy">
+        @if (item.titleArtUrl && !titleArtFailed()) {
+        <img
+          class="title-art"
+          [src]="item.titleArtUrl"
+          [alt]="item.title"
+          (error)="titleArtFailed.set(true)"
+        />
+        } @else {
+        <h1>{{ item.title }}</h1>
+        }
+
+        <div class="meta">
+          <span>{{ typeLabel() }}</span>
+
+          @if (item.releaseYear) {
+          <span>{{ item.releaseYear }}</span>
+          } @if (item.structure === 'EPISODIC') {
+          <span class="series">
+            <svg lucideLayers3></svg>
+            Serie
+          </span>
+          }
+        </div>
+
+        <div class="actions">
+          @if (selectedVideo()) {
+          <button class="play-button" type="button" (click)="play()">
+            <svg lucidePlay></svg>
+            Reproducir
+          </button>
+          }
+
+          <button
+            class="like-button"
+            type="button"
+            [class.liked]="item.likedByCurrentUser"
+            [disabled]="liking()"
+            (click)="toggleLike()"
+          >
+            <svg lucideHeart></svg>
+            <span>{{ item.likeCount }}</span>
+          </button>
+        </div>
+      </div>
+    </header>
+
+    <div class="content-grid">
+      <main>
+        @if (item.structure === 'EPISODIC' && episodes().length > 0) {
+        <section class="detail-section episodes-section">
+          <h2>Episodios</h2>
+          <app-media-rail variant="compact" ariaLabel="Episodios">
+            @for (episode of episodes(); track episode.id) {
+            <app-media-rail-item>
+              <app-episode-card
+                [episode]="episode"
+                [active]="false"
+                (selected)="selectVideo($event)"
+              />
+            </app-media-rail-item>
+            }
+          </app-media-rail>
+        </section>
+        } @if (item.description) {
+        <section class="detail-section description">
+          <h2>Sobre la obra</h2>
+          <p>{{ item.description }}</p>
+        </section>
+        } @if (item.credits.length > 0) {
+        <section class="detail-section credits">
+          <h2>Créditos</h2>
+          <div class="credit-list">
+            @for (credit of item.credits; track credit.id) {
+            <div class="credit-row">
+              <span>{{ credit.roleDetail || creditLabel(credit.role) }}</span>
+              @if (credit.user) {
+              <a [routerLink]="['/creator', credit.user.username]"
+                >{{ credit.user.displayName }}</a
+              >
+              } @else {
+              <strong>{{ credit.personName }}</strong>
+              }
+            </div>
+            }
+          </div>
+        </section>
+        }
+      </main>
+
+      <aside class="creator-panel">
+        <span>Una producción de</span>
+        <a [routerLink]="['/creator', item.submittedBy.username]"
+          >{{ item.submittedBy.displayName }}</a
+        >
+        <small>@{{ item.submittedBy.username }}</small>
+      </aside>
+    </div>
+    }
+  </div>
+</section>

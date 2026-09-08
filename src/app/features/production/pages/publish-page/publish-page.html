@@ -1,0 +1,453 @@
+<section class="publish-page fade-enter">
+  <div class="page-container studio-container">
+    <header class="studio-header">
+      <div>
+        <span>{{ production() ? 'Studio' : 'Nueva producción' }}</span>
+        <h1>{{ production()?.title || 'Publicar' }}</h1>
+      </div>
+
+      @if (production()) {
+      <div class="status" [attr.data-status]="production()!.moderationStatus">
+        {{ statusLabel() }}
+      </div>
+      }
+    </header>
+
+    @if (loading()) {
+    <div class="loading-panel">Cargando…</div>
+    } @else { @if (error()) {
+    <div class="feedback error">{{ error() }}</div>
+    } @if (notice()) {
+    <div class="feedback success"><svg lucideCheck></svg>{{ notice() }}</div>
+    } @if (production()?.moderationStatus === 'REJECTED') {
+    <div class="moderation-message">
+      <strong>Requiere cambios</strong>
+      <p>{{ production()?.moderationNote }}</p>
+    </div>
+    } @if (production()?.moderationStatus === 'PENDING') {
+    <div class="moderation-message pending">
+      <strong>En revisión</strong>
+      <p>Mientras la obra está siendo revisada no puede editarse.</p>
+    </div>
+    }
+
+    <section class="studio-section">
+      <div class="section-heading">
+        <h2>Datos de la obra</h2>
+      </div>
+
+      <form
+        class="form-grid"
+        [formGroup]="detailsForm"
+        (ngSubmit)="production() ? saveDetails() : createDraft()"
+      >
+        <label class="wide">
+          <span>Título</span>
+          <input type="text" formControlName="title" />
+        </label>
+
+        <label class="wide">
+          <span>Descripción</span>
+          <textarea rows="5" formControlName="description"></textarea>
+        </label>
+
+        <label>
+          <span>Tipo</span>
+          <select formControlName="type">
+            @for (option of productionTypes; track option.value) {
+            <option [value]="option.value">{{ option.label }}</option>
+            }
+          </select>
+        </label>
+
+        <label>
+          <span>Año</span>
+          <input type="number" formControlName="releaseYear" />
+        </label>
+
+        <label>
+          <span>Estructura</span>
+          <select formControlName="structure">
+            <option value="SINGLE">Una pieza</option>
+            <option value="EPISODIC">Serie / episodios</option>
+          </select>
+        </label>
+
+        <div class="wide choice-field">
+          <span class="field-label">Géneros</span>
+
+          <div class="choice-list">
+            @for (genre of genres(); track genre.id) {
+            <button
+              type="button"
+              class="choice-chip"
+              [class.selected]="genreSelected(genre.id)"
+              [disabled]="!!production() && !canEdit()"
+              (click)="toggleGenre(genre.id)"
+            >
+              {{ genre.name }}
+            </button>
+            }
+          </div>
+
+          <small>Podés elegir más de uno.</small>
+        </div>
+
+        @if (!production()) {
+        <div class="credits-create wide">
+          <div class="subheading">
+            <strong>Créditos iniciales</strong>
+            <span>Opcional</span>
+          </div>
+
+          <div class="credit-self">
+            <label>
+              <span>Tu rol</span>
+              <select formControlName="ownRole">
+                <option value="">Sin agregarme</option>
+                @for (role of creditRoles; track role.value) {
+                <option [value]="role.value">{{ role.label }}</option>
+                }
+              </select>
+            </label>
+
+            <label>
+              <span>Detalle</span>
+              <input
+                type="text"
+                formControlName="ownRoleDetail"
+                placeholder="Ej. Dirección y montaje"
+              />
+            </label>
+          </div>
+
+          @for (credit of externalCredits(); track $index; let index = $index) {
+          <div class="external-credit">
+            <input
+              type="text"
+              placeholder="Nombre"
+              [value]="credit.personName"
+              (input)="updateExternalCredit(index, 'personName', $event)"
+            />
+            <select
+              [value]="credit.role"
+              (change)="updateExternalCredit(index, 'role', $event)"
+            >
+              @for (role of creditRoles; track role.value) {
+              <option [value]="role.value">{{ role.label }}</option>
+              }
+            </select>
+            <input
+              type="text"
+              placeholder="Detalle"
+              [value]="credit.roleDetail"
+              (input)="updateExternalCredit(index, 'roleDetail', $event)"
+            />
+            <button
+              type="button"
+              aria-label="Quitar crédito"
+              (click)="removeExternalCredit(index)"
+            >
+              <svg lucideX></svg>
+            </button>
+          </div>
+          }
+
+          <button
+            class="text-button"
+            type="button"
+            (click)="addExternalCredit()"
+          >
+            <svg lucidePlus></svg>
+            Agregar persona
+          </button>
+        </div>
+        } @if (!production() || canEdit()) {
+        <div class="form-actions wide">
+          <button class="primary" type="submit" [disabled]="busy()">
+            {{ production() ? 'Guardar' : 'Crear borrador' }}
+          </button>
+        </div>
+        }
+      </form>
+    </section>
+
+    @if (production(); as item) {
+    <section class="studio-section">
+      <div class="section-heading">
+        <h2>Videos</h2>
+      </div>
+
+      @if (item.videos.length > 0) {
+      <div class="video-list">
+        @for (video of item.videos; track video.id) {
+        <div class="video-row" [class.readonly]="!canEdit()">
+          <div class="video-thumb">
+            @if (video.videoAsset.thumbnailUrl) {
+            <img
+              [src]="video.videoAsset.thumbnailUrl"
+              [alt]="video.title || videoKindLabel(video.kind)"
+            />
+            }
+          </div>
+          <div class="video-info">
+            <strong>{{ video.title || videoKindLabel(video.kind) }}</strong>
+
+            <span>
+              {{ videoKindLabel(video.kind) }} · {{ video.maturity ===
+              'ADULT_18' ? '+18' : 'General' }}
+            </span>
+
+            @if (video.advisories.length > 0) {
+            <small>
+              @for (advisory of video.advisories; track advisory; let last =
+              $last) { {{ advisoryLabel(advisory) }}{{ last ? '' : ' · ' }} }
+            </small>
+            }
+          </div>
+          @if (canEdit()) {
+          <button
+            type="button"
+            aria-label="Editar video"
+            (click)="editVideo(video)"
+          >
+            <svg lucideEdit3></svg>
+          </button>
+          <button
+            class="danger-icon"
+            type="button"
+            aria-label="Eliminar video"
+            (click)="removeVideo(video)"
+            [disabled]="busy()"
+          >
+            <svg lucideTrash2></svg>
+          </button>
+          }
+        </div>
+        }
+      </div>
+      } @if (canEdit()) {
+      <form
+        class="video-form"
+        [formGroup]="videoForm"
+        (ngSubmit)="submitVideo()"
+      >
+        @if (editingVideoId()) {
+        <div class="editing-banner">
+          <span>Editando video</span>
+          <button type="button" (click)="cancelVideoEdit()">Cancelar</button>
+        </div>
+        }
+
+        <label>
+          <span>Tipo</span>
+          <select
+            formControlName="kind"
+            [attr.disabled]="editingVideoId() ? true : null"
+          >
+            @for (kind of allowedVideoKinds(); track kind) {
+            <option [value]="kind">{{ videoKindLabel(kind) }}</option>
+            }
+          </select>
+        </label>
+
+        @if (!editingVideoId()) {
+        <label class="wide video-url-field">
+          <span>URL de YouTube</span>
+          <input
+            type="url"
+            formControlName="videoUrl"
+            placeholder="https://youtu.be/..."
+          />
+          <small>Solo videos verticales · 9:16 recomendado</small>
+        </label>
+        }
+
+        <label>
+          <span>Título</span>
+          <input type="text" formControlName="title" />
+        </label>
+
+        @if (videoForm.controls.kind.value === 'EPISODE') {
+        <label>
+          <span>N.º episodio</span>
+          <input type="number" formControlName="episodeNumber" />
+        </label>
+        }
+
+        <label>
+          <span>Orden</span>
+          <input type="number" formControlName="displayOrder" />
+        </label>
+
+        <label>
+          <span>Clasificación</span>
+
+          <select formControlName="maturity">
+            @for (option of contentMaturities; track option.value) {
+            <option [value]="option.value">{{ option.label }}</option>
+            }
+          </select>
+        </label>
+
+        <div class="wide choice-field">
+          <span class="field-label">Advertencias de contenido</span>
+
+          <div class="choice-list">
+            @for (option of contentAdvisories; track option.value) {
+            <button
+              type="button"
+              class="choice-chip"
+              [class.selected]="advisorySelected(option.value)"
+              (click)="toggleAdvisory(option.value)"
+            >
+              {{ option.label }}
+            </button>
+            }
+          </div>
+
+          <small> Marcá únicamente el contenido presente en este video. </small>
+        </div>
+
+        <div class="form-actions wide">
+          <button class="secondary" type="submit" [disabled]="busy()">
+            {{ editingVideoId() ? 'Guardar video' : 'Agregar video' }}
+          </button>
+        </div>
+      </form>
+      }
+    </section>
+
+    <section class="studio-section">
+      <div class="section-heading">
+        <h2>Artwork</h2>
+      </div>
+
+      <form
+        class="form-grid"
+        [formGroup]="artworkForm"
+        (ngSubmit)="saveArtwork()"
+      >
+        <label class="wide">
+          <span>Poster URL</span>
+          <input type="url" formControlName="posterUrl" />
+        </label>
+
+        <label>
+          <span>Foco horizontal</span>
+          <input
+            type="range"
+            min="0"
+            max="1"
+            step="0.01"
+            formControlName="posterFocalX"
+          />
+        </label>
+
+        <label>
+          <span>Foco vertical</span>
+          <input
+            type="range"
+            min="0"
+            max="1"
+            step="0.01"
+            formControlName="posterFocalY"
+          />
+        </label>
+
+        <label class="wide">
+          <span>Artwork horizontal URL</span>
+          <input type="url" formControlName="landscapeArtworkUrl" />
+        </label>
+
+        <label class="wide">
+          <span>Title art transparente URL</span>
+          <input type="url" formControlName="titleArtUrl" />
+        </label>
+
+        <label>
+          <span>Posición del título</span>
+          <select formControlName="titleArtPosition">
+            @for (position of titlePositions; track position) {
+            <option [value]="position">
+              {{ titlePositionLabel(position) }}
+            </option>
+            }
+          </select>
+        </label>
+
+        @if (canEdit()) {
+        <div class="form-actions wide">
+          <button class="secondary" type="submit" [disabled]="busy()">
+            Guardar artwork
+          </button>
+        </div>
+        }
+      </form>
+    </section>
+
+    <section class="studio-section final-section">
+      <div class="section-heading">
+        <h2>Publicación</h2>
+        @if (reviewHint()) {
+        <p>{{ reviewHint() }}</p>
+        }
+      </div>
+
+      <div class="publish-actions">
+        @if (item.status === 'PUBLISHED') {
+        <a
+          class="secondary large link-button"
+          [routerLink]="['/production', item.slug]"
+          >Ver publicada</a
+        >
+        <button
+          class="secondary large"
+          type="button"
+          (click)="hide()"
+          [disabled]="busy()"
+        >
+          Ocultar
+        </button>
+        } @else if (item.status === 'HIDDEN' && item.moderationStatus ===
+        'APPROVED') {
+        <button
+          class="primary large"
+          type="button"
+          (click)="restorePublication()"
+          [disabled]="busy()"
+        >
+          Volver a publicar
+        </button>
+        } @else if (item.moderationStatus === 'PENDING') {
+        <button class="primary large" type="button" disabled>
+          En revisión
+        </button>
+        } @else if (item.moderationStatus === 'REJECTED') {
+        <button class="primary large" type="button" disabled>
+          Corregí la obra para reenviar
+        </button>
+        } @else {
+        <button
+          class="primary large"
+          type="button"
+          (click)="submitForReview()"
+          [disabled]="busy() || !canSubmitForReview()"
+        >
+          Enviar a revisión
+        </button>
+        }
+
+        <button
+          class="danger-text"
+          type="button"
+          (click)="removeProduction()"
+          [disabled]="busy()"
+        >
+          Eliminar producción
+        </button>
+      </div>
+    </section>
+    } }
+  </div>
+</section>

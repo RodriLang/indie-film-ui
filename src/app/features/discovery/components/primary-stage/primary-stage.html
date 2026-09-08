@@ -1,0 +1,127 @@
+<section #stageRoot class="primary-stage" aria-label="Selección principal">
+  <div
+    #viewport
+    class="stage-viewport"
+    tabindex="0"
+    (scroll)="onScroll()"
+    (keydown)="onKeydown($event)"
+  >
+    @for ( production of productions(); track production.id; let index = $index
+    ) {
+    <article class="stage-slide">
+      <div class="stage-card">
+        @if (production.posterUrl) {
+        <img
+          class="stage-image"
+          [src]="production.posterUrl"
+          [alt]="production.title"
+          [attr.loading]="
+                index === 0 ? 'eager' : 'lazy'
+              "
+          [attr.fetchpriority]="
+                index === 0 ? 'high' : 'auto'
+              "
+        />
+        } @else {
+        <div class="stage-fallback"></div>
+        } @if ( index === activeIndex() && !reducedMotion() &&
+        trailerPlayback(); as playback ) {
+        <app-autoplay-trailer-player
+          [playback]="playback"
+          [muted]="stageMuted()"
+          fit="cover"
+          (ended)="onTrailerEnded()"
+          (unavailable)="onTrailerUnavailable()"
+          (autoplayMuted)="onAutoplayMuted()"
+        />
+        }
+
+        <div class="stage-vignette" aria-hidden="true"></div>
+
+        <a
+          class="stage-card-link"
+          [routerLink]="[
+              '/production',
+              production.slug
+            ]"
+          [attr.aria-label]="
+              'Ver ' + production.title
+            "
+        ></a>
+
+        @if ( index === activeIndex() && production.trailer && !reducedMotion()
+        ) {
+        <button
+          class="stage-sound"
+          type="button"
+          [attr.aria-label]="
+                stageMuted()
+                  ? 'Activar sonido'
+                  : 'Silenciar'
+              "
+          [attr.aria-pressed]="!stageMuted()"
+          (click)="toggleSound($event)"
+        >
+          @if (stageMuted()) {
+          <svg lucideVolumeX></svg>
+          } @else {
+          <svg lucideVolume2></svg>
+          }
+        </button>
+        }
+
+        <div class="stage-meta">
+          <div class="stage-title">
+            <strong> {{ production.title }} </strong>
+
+            <span> {{ production.submittedBy .displayName }} </span>
+          </div>
+
+          <a
+            class="stage-play"
+            [routerLink]="[
+                '/watch',
+                production.slug
+              ]"
+            [attr.aria-label]="
+                'Reproducir ' +
+                production.title
+              "
+          >
+            <span aria-hidden="true"></span>
+          </a>
+        </div>
+      </div>
+    </article>
+    }
+  </div>
+
+  @if (productions().length > 1) {
+  <div
+    class="stage-position"
+    aria-label="Producción {{ activeIndex() + 1 }} de {{ productions().length }}"
+  >
+    @for ( production of productions(); track production.id; let index = $index
+    ) {
+    <button
+      type="button"
+      class="stage-dot"
+      [attr.data-distance]="
+            distanceFromActive(index)
+          "
+      [attr.aria-current]="
+            index === activeIndex()
+              ? 'true'
+              : null
+          "
+      [attr.aria-label]="
+            'Ir a ' + production.title
+          "
+      (click)="goTo(index)"
+    >
+      <span class="sr-only"> {{ production.title }} </span>
+    </button>
+    }
+  </div>
+  }
+</section>
