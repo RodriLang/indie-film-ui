@@ -1,0 +1,10 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "indie-film-ui",
+  "compatibility_date": "2026-09-09",
+
+  "assets": {
+    "directory": "./dist/indie-film-web/browser",
+    "not_found_handling": "single-page-application",
+  },
+}
