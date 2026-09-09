@@ -27,6 +27,7 @@ export interface RegisterRequest {
   password: string;
   username: string;
   displayName: string;
+  birthDate: string;
 }
 
 export const USER_ROLE_OPTIONS: readonly { value: UserRole; label: string }[] = [

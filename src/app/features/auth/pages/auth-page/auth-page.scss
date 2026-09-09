@@ -91,6 +91,38 @@ input {
   }
 }
 
+input[aria-invalid="true"] {
+  border-color: var(--color-danger);
+
+  &:focus {
+    border-color: var(--color-danger);
+  }
+}
+
+.field-error {
+  margin-top: -2px;
+
+  color: var(--color-danger);
+
+  font-size: 0.74rem;
+  line-height: 1.35;
+}
+
+.form-error {
+  margin: var(--space-4) 0 0;
+  padding: 10px 12px;
+
+  border: 1px solid color-mix(in srgb, var(--color-danger) 35%, transparent);
+  border-radius: var(--radius-md);
+
+  background: color-mix(in srgb, var(--color-danger) 8%, transparent);
+
+  color: var(--color-danger);
+
+  font-size: 0.82rem;
+  line-height: 1.4;
+}
+
 .submit-button {
   min-height: 48px;
   margin-top: var(--space-2);
@@ -101,7 +133,10 @@ input {
   font-weight: 720;
   cursor: pointer;
 
-  &:disabled { opacity: 0.55; }
+  &:disabled {
+    opacity: 0.55;
+    cursor: default;
+  }
 }
 
 .form-error {
