@@ -1,6 +1,10 @@
+import { CreatorSpecialty } from '../../features/user/data/creator.models';
+
 export type UserRole = 'USER' | 'CREATOR' | 'MODERATOR' | 'ADMIN';
 
-export interface AuthUser {
+export type RegistrationRole = 'USER' | 'CREATOR';
+
+export interface CurrentUser {
   id: number;
   email: string;
   username: string;
@@ -8,13 +12,15 @@ export interface AuthUser {
   bio?: string | null;
   avatarUrl?: string | null;
   role: UserRole;
+  specialties: CreatorSpecialty[];
+  birthDate?: string | null;
 }
 
 export interface AuthResponse {
   accessToken: string;
   tokenType: string;
   expiresIn: number;
-  user: AuthUser;
+  user: CurrentUser;
 }
 
 export interface LoginRequest {
@@ -23,20 +29,33 @@ export interface LoginRequest {
 }
 
 export interface RegisterRequest {
-  email: string;
-  password: string;
-  username: string;
   displayName: string;
+  username: string;
+  email: string;
+  birthDate: string;
+  password: string;
+  role: RegistrationRole;
+  bio?: string | null;
+  specialties: CreatorSpecialty[];
+}
+
+export interface UpdateMyProfileRequest {
+  displayName: string;
+  bio: string | null;
+  specialties: CreatorSpecialty[];
   birthDate: string;
 }
 
-export const USER_ROLE_OPTIONS: readonly { value: UserRole; label: string }[] = [
-  { value: 'USER', label: 'Usuario' },
-  { value: 'CREATOR', label: 'Creador' },
-  { value: 'MODERATOR', label: 'Moderador' },
-  { value: 'ADMIN', label: 'Administrador' }
-];
+export const USER_ROLE_OPTIONS: readonly { value: UserRole; label: string }[] =
+  [
+    { value: 'USER', label: 'Usuario' },
+    { value: 'CREATOR', label: 'Creador' },
+    { value: 'MODERATOR', label: 'Moderador' },
+    { value: 'ADMIN', label: 'Administrador' },
+  ];
 
 export function userRoleLabel(role: UserRole): string {
-  return USER_ROLE_OPTIONS.find((option) => option.value === role)?.label ?? role;
+  return (
+    USER_ROLE_OPTIONS.find((option) => option.value === role)?.label ?? role
+  );
 }

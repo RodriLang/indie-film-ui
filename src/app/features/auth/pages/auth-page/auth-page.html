@@ -23,7 +23,7 @@
     @if (mode() === 'login') {
     <div class="auth-heading">
       <h1>Volvé a mirar.</h1>
-      <p>Entrá para publicar, guardar likes y administrar tu portfolio.</p>
+      <p>Entrá para seguir disfrutando indie film.</p>
     </div>
 
     <form [formGroup]="loginForm" (ngSubmit)="submitLogin()">
@@ -69,9 +69,9 @@
     </form>
     } @else {
     <div class="auth-heading">
-      <h1>Tu trabajo, en un lugar.</h1>
+      <h1>Tu lugar en indie film.</h1>
       <p>
-        Creá tu perfil y empezá a construir el portfolio de tus producciones.
+        Creá tu cuenta para descubrir producciones o publicar tu propio trabajo.
       </p>
     </div>
 
@@ -148,6 +148,76 @@
         <small class="field-error">{{ message }}</small>
         }
       </label>
+
+      <fieldset class="account-type">
+        <legend>¿Cómo querés usar indie film?</legend>
+
+        <div class="account-type-options">
+          <button
+            type="button"
+            [class.active]="registerForm.controls.role.value === 'USER'"
+            [attr.aria-pressed]="registerForm.controls.role.value === 'USER'"
+            (click)="setRegistrationRole('USER')"
+          >
+            <strong>Quiero mirar</strong>
+            <span>Descubrir producciones y disfrutar el contenido.</span>
+          </button>
+
+          <button
+            type="button"
+            [class.active]="registerForm.controls.role.value === 'CREATOR'"
+            [disabled]="!canRegisterAsCreator()"
+            [attr.aria-pressed]="registerForm.controls.role.value === 'CREATOR'"
+            (click)="setRegistrationRole('CREATOR')"
+          >
+            <strong>Quiero crear</strong>
+
+            <span>
+              @if (canRegisterAsCreator()) { Publicar producciones y mostrar mi
+              trabajo. } @else { Disponible para mayores de 18 años. }
+            </span>
+          </button>
+        </div>
+      </fieldset>
+
+      @if (registerForm.controls.role.value === 'CREATOR') {
+      <div class="creator-fields">
+        <label>
+          <span>Sobre vos</span>
+
+          <textarea
+            formControlName="bio"
+            maxlength="2000"
+            placeholder="Contá brevemente qué hacés y qué tipo de proyectos te interesan."
+            [attr.aria-invalid]="
+                  registerForm.controls.bio.touched &&
+                  registerForm.controls.bio.invalid
+                "
+          ></textarea>
+
+          @if (registerFieldError('bio'); as message) {
+          <small class="field-error">{{ message }}</small>
+          }
+        </label>
+
+        <div class="specialties-field">
+          <span class="field-label">Especialidades</span>
+
+          <div class="specialty-options">
+            @for (specialty of creatorSpecialtyOptions; track specialty.value) {
+            <button
+              type="button"
+              class="specialty-chip"
+              [class.selected]="hasSpecialty(specialty.value)"
+              (click)="toggleSpecialty(specialty.value)"
+            >
+              {{ specialty.label }}
+            </button>
+            }
+          </div>
+        </div>
+      </div>
+      }
 
       <label>
         <span>Contraseña</span>

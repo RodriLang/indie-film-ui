@@ -1,7 +1,7 @@
 import { PLATFORM_ID, computed, inject, Injectable, signal } from '@angular/core';
 import { isPlatformBrowser } from '@angular/common';
 
-import { AuthResponse, AuthUser } from './auth.models';
+import { AuthResponse, CurrentUser } from './auth.models';
 
 const TOKEN_KEY = 'indie-film.access-token';
 const USER_KEY = 'indie-film.auth-user';
@@ -13,7 +13,7 @@ export class AuthStore {
   private readonly browser = isPlatformBrowser(this.platformId);
 
   private readonly accessTokenState = signal<string | null>(this.readToken());
-  private readonly userState = signal<AuthUser | null>(this.readUser());
+  private readonly userState = signal<CurrentUser | null>(this.readUser());
 
   readonly accessToken = this.accessTokenState.asReadonly();
   readonly user = this.userState.asReadonly();
@@ -40,7 +40,7 @@ export class AuthStore {
     }
   }
 
-  updateUser(patch: Partial<AuthUser>): void {
+  updateUser(patch: Partial<CurrentUser>): void {
     const current = this.userState();
 
     if (!current) {
@@ -69,7 +69,7 @@ export class AuthStore {
     return this.browser ? localStorage.getItem(TOKEN_KEY) : null;
   }
 
-  private readUser(): AuthUser | null {
+  private readUser(): CurrentUser | null {
     if (!this.browser) {
       return null;
     }
@@ -81,7 +81,7 @@ export class AuthStore {
     }
 
     try {
-      return JSON.parse(value) as AuthUser;
+      return JSON.parse(value) as CurrentUser;
     } catch {
       localStorage.removeItem(USER_KEY);
       return null;

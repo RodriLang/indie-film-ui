@@ -1,35 +1,64 @@
-import { ChangeDetectionStrategy, Component, DestroyRef, inject, OnInit, signal } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  DestroyRef,
+  inject,
+  OnInit,
+  signal,
+} from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
-import { forkJoin, finalize } from 'rxjs';
-import { LucideEdit3, LucideLogOut, LucidePlus, LucideShieldCheck, LucideUsers } from '@lucide/angular';
+import { forkJoin, finalize, switchMap, tap } from 'rxjs';
+import {
+  LucideEdit3,
+  LucideLogOut,
+  LucidePlus,
+  LucideShieldCheck,
+  LucideUsers,
+} from '@lucide/angular';
 
 import { apiErrorMessage } from '../../../../core/api/http-error';
 import { AuthStore } from '../../../../core/auth/auth.store';
 import { Avatar } from '../../../../shared/ui/avatar/avatar';
 import { ProductionCard } from '../../../production/components/production-card/production-card';
 import { ProductionApi } from '../../../production/data/production.api';
-import { creditRoleLabel, OwnProductionSummary, ProductionSummary } from '../../../production/data/production.models';
+import {
+  creditRoleLabel,
+  OwnProductionSummary,
+  ProductionSummary,
+} from '../../../production/data/production.models';
 import { CreatorApi } from '../../data/creator.api';
 import {
   CREATOR_SPECIALTY_OPTIONS,
   CreatorParticipation,
   CreatorProfile,
-  CreatorSpecialty
+  CreatorSpecialty,
 } from '../../data/creator.models';
+import { CurrentUserApi } from '../../../../core/auth/current-user.api';
 
 @Component({
   selector: 'app-creator-page',
-  imports: [ReactiveFormsModule, RouterLink, Avatar, ProductionCard, LucideEdit3, LucideLogOut, LucidePlus, LucideShieldCheck, LucideUsers],
+  imports: [
+    ReactiveFormsModule,
+    RouterLink,
+    Avatar,
+    ProductionCard,
+    LucideEdit3,
+    LucideLogOut,
+    LucidePlus,
+    LucideShieldCheck,
+    LucideUsers,
+  ],
   templateUrl: './creator-page.html',
   styleUrl: './creator-page.scss',
-  changeDetection: ChangeDetectionStrategy.OnPush
+  changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class CreatorPage implements OnInit {
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
   private readonly creatorApi = inject(CreatorApi);
+  private readonly currentUserApi = inject(CurrentUserApi);
   private readonly productionApi = inject(ProductionApi);
   readonly authStore = inject(AuthStore);
   private readonly destroyRef = inject(DestroyRef);
@@ -50,14 +79,15 @@ export class CreatorPage implements OnInit {
   readonly profileForm = this.fb.nonNullable.group({
     displayName: ['', [Validators.required, Validators.maxLength(100)]],
     bio: ['', Validators.maxLength(2000)],
-    avatarUrl: ['', Validators.maxLength(1000)]
   });
 
   ngOnInit(): void {
     const own = this.route.snapshot.data['own'] === true;
     this.own.set(own);
 
-    const username = own ? this.authStore.user()?.username : this.route.snapshot.paramMap.get('username');
+    const username = own
+      ? this.authStore.user()?.username
+      : this.route.snapshot.paramMap.get('username');
     if (!username) {
       this.error.set('No pudimos encontrar el perfil.');
       this.loading.set(false);
@@ -77,7 +107,6 @@ export class CreatorPage implements OnInit {
       this.profileForm.setValue({
         displayName: profile.displayName,
         bio: profile.bio ?? '',
-        avatarUrl: profile.avatarUrl ?? ''
       });
       this.specialties.set(new Set(profile.specialties));
     }
@@ -97,24 +126,52 @@ export class CreatorPage implements OnInit {
       return;
     }
 
+    const currentUser = this.authStore.user();
+
+    if (!currentUser?.birthDate) {
+      this.error.set(
+        'Completá tu fecha de nacimiento antes de editar el perfil.',
+      );
+      return;
+    }
+
     const value = this.profileForm.getRawValue();
+
     this.saving.set(true);
     this.error.set(null);
 
-    this.creatorApi.updateMe({
-      displayName: value.displayName.trim(),
-      bio: value.bio.trim() || null,
-      avatarUrl: value.avatarUrl.trim() || null,
-      specialties: [...this.specialties()]
-    })
-      .pipe(finalize(() => this.saving.set(false)), takeUntilDestroyed(this.destroyRef))
+    this.currentUserApi
+      .updateProfile({
+        displayName: value.displayName.trim(),
+        bio: value.bio.trim() || null,
+        specialties: [...this.specialties()],
+        birthDate: currentUser.birthDate,
+      })
+      .pipe(
+        tap((user) => {
+          this.authStore.updateUser({
+            displayName: user.displayName,
+            bio: user.bio,
+            avatarUrl: user.avatarUrl,
+            specialties: user.specialties,
+            birthDate: user.birthDate,
+            role: user.role,
+          });
+        }),
+        switchMap((user) => this.creatorApi.findByUsername(user.username)),
+        finalize(() => this.saving.set(false)),
+        takeUntilDestroyed(this.destroyRef),
+      )
       .subscribe({
         next: (profile) => {
           this.profile.set(profile);
-          this.authStore.updateUser({ displayName: profile.displayName, avatarUrl: profile.avatarUrl });
           this.editing.set(false);
         },
-        error: (error) => this.error.set(apiErrorMessage(error, 'No pudimos guardar el perfil.'))
+        error: (error) => {
+          this.error.set(
+            apiErrorMessage(error, 'No pudimos guardar el perfil.'),
+          );
+        },
       });
   }
 
@@ -132,17 +189,24 @@ export class CreatorPage implements OnInit {
       return 'Requiere cambios';
     }
 
-    return ({ DRAFT: 'Borrador', PUBLISHED: 'Publicada', HIDDEN: 'Oculta', REMOVED: 'Eliminada' })[production.status];
+    return {
+      DRAFT: 'Borrador',
+      PUBLISHED: 'Publicada',
+      HIDDEN: 'Oculta',
+      REMOVED: 'Eliminada',
+    }[production.status];
   }
 
   specialtyLabel(specialty: CreatorSpecialty): string {
-    return this.specialtyOptions.find((option) => option.value === specialty)?.label ?? specialty;
+    return (
+      this.specialtyOptions.find((option) => option.value === specialty)
+        ?.label ?? specialty
+    );
   }
 
   roleLabel(role: CreatorParticipation['credits'][number]['role']): string {
     return creditRoleLabel(role);
   }
-
 
   private load(username: string): void {
     const profile$ = this.creatorApi.findByUsername(username);
@@ -150,7 +214,12 @@ export class CreatorPage implements OnInit {
     const participations$ = this.creatorApi.findParticipations(username, 0, 24);
 
     if (this.own() && this.authStore.canCreate()) {
-      forkJoin({ profile: profile$, productions: productions$, participations: participations$, ownProductions: this.productionApi.findOwn(null, 0, 50) })
+      forkJoin({
+        profile: profile$,
+        productions: productions$,
+        participations: participations$,
+        ownProductions: this.productionApi.findOwn(null, 0, 50),
+      })
         .pipe(takeUntilDestroyed(this.destroyRef))
         .subscribe({
           next: (data) => {
@@ -160,12 +229,16 @@ export class CreatorPage implements OnInit {
             this.ownProductions.set(data.ownProductions.content);
             this.loading.set(false);
           },
-          error: (error) => this.handleLoadError(error)
+          error: (error) => this.handleLoadError(error),
         });
       return;
     }
 
-    forkJoin({ profile: profile$, productions: productions$, participations: participations$ })
+    forkJoin({
+      profile: profile$,
+      productions: productions$,
+      participations: participations$,
+    })
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
         next: (data) => {
@@ -174,7 +247,7 @@ export class CreatorPage implements OnInit {
           this.participations.set(data.participations.content);
           this.loading.set(false);
         },
-        error: (error) => this.handleLoadError(error)
+        error: (error) => this.handleLoadError(error),
       });
   }
 

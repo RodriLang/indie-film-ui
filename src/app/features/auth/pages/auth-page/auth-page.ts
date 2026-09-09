@@ -1,16 +1,26 @@
 import {
   ChangeDetectionStrategy,
   Component,
+  DestroyRef,
   inject,
   signal,
 } from '@angular/core';
-import { AbstractControl, FormBuilder, ReactiveFormsModule, ValidationErrors, Validators } from '@angular/forms';
+import {
+  AbstractControl,
+  FormBuilder,
+  ReactiveFormsModule,
+  ValidationErrors,
+  Validators,
+} from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { finalize } from 'rxjs';
 
 import { apiErrorMessage } from '../../../../core/api/http-error';
 import { AuthApi } from '../../../../core/auth/auth.api';
 import { AuthStore } from '../../../../core/auth/auth.store';
+import { RegistrationRole } from '../../../../core/auth/auth.models';
+import { CreatorSpecialty } from '../../../user/data/creator.models';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 
 function pastDateValidator(
   control: AbstractControl<string>,
@@ -44,6 +54,7 @@ export class AuthPage {
   private readonly authStore = inject(AuthStore);
   private readonly router = inject(Router);
   private readonly route = inject(ActivatedRoute);
+  private readonly destroyRef = inject(DestroyRef);
 
   readonly mode = signal<'login' | 'register'>('login');
   readonly submitting = signal(false);
@@ -58,6 +69,7 @@ export class AuthPage {
 
   readonly registerForm = this.fb.nonNullable.group({
     displayName: ['', [Validators.required, Validators.maxLength(100)]],
+
     username: [
       '',
       [
@@ -67,8 +79,17 @@ export class AuthPage {
         Validators.pattern(/^[A-Za-z0-9._-]+$/),
       ],
     ],
+
     email: ['', [Validators.required, Validators.email]],
-    birthDate: ['', Validators.required],
+
+    birthDate: ['', [Validators.required, pastDateValidator]],
+
+    role: this.fb.nonNullable.control<RegistrationRole>('USER'),
+
+    bio: ['', Validators.maxLength(2000)],
+
+    specialties: this.fb.nonNullable.control<CreatorSpecialty[]>([]),
+
     password: [
       '',
       [Validators.required, Validators.minLength(8), Validators.maxLength(64)],
@@ -76,6 +97,17 @@ export class AuthPage {
   });
 
   constructor() {
+    this.registerForm.controls.birthDate.valueChanges
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe((birthDate) => {
+        if (
+          this.registerForm.controls.role.value === 'CREATOR' &&
+          !this.isAdultBirthDate(birthDate)
+        ) {
+          this.setRegistrationRole('USER');
+        }
+      });
+
     if (this.authStore.authenticated()) {
       void this.router.navigateByUrl(this.returnUrl());
       return;
@@ -223,6 +255,13 @@ export class AuthPage {
 
         break;
 
+      case 'bio':
+        if (control.hasError('maxlength')) {
+          return 'La descripción no puede superar los 2000 caracteres.';
+        }
+
+        break;
+
       case 'password':
         if (control.hasError('required')) {
           return 'Ingresá una contraseña.';
@@ -240,6 +279,85 @@ export class AuthPage {
     }
 
     return 'Revisá este campo.';
+  }
+
+  setRegistrationRole(role: RegistrationRole): void {
+    if (role === 'CREATOR' && !this.canRegisterAsCreator()) {
+      return;
+    }
+
+    const roleControl = this.registerForm.controls.role;
+
+    roleControl.setValue(role);
+    roleControl.markAsDirty();
+
+    if (role === 'USER') {
+      this.registerForm.controls.specialties.setValue([]);
+    }
+  }
+
+  hasSpecialty(specialty: CreatorSpecialty): boolean {
+    return this.registerForm.controls.specialties.value.includes(specialty);
+  }
+
+  toggleSpecialty(specialty: CreatorSpecialty): void {
+    const control = this.registerForm.controls.specialties;
+    const current = control.value;
+
+    control.setValue(
+      current.includes(specialty)
+        ? current.filter((value) => value !== specialty)
+        : [...current, specialty],
+    );
+
+    control.markAsDirty();
+  }
+
+  readonly creatorSpecialtyOptions: ReadonlyArray<{
+    value: CreatorSpecialty;
+    label: string;
+  }> = [
+    { value: 'DIRECTING', label: 'Dirección' },
+    { value: 'SCREENWRITING', label: 'Guion' },
+    { value: 'PRODUCING', label: 'Producción' },
+    { value: 'CINEMATOGRAPHY', label: 'Dirección de fotografía' },
+    { value: 'CAMERA', label: 'Cámara' },
+    { value: 'EDITING', label: 'Montaje' },
+    { value: 'COLOR', label: 'Color' },
+    { value: 'SOUND', label: 'Sonido' },
+    { value: 'MUSIC', label: 'Música' },
+    { value: 'ART_DIRECTION', label: 'Dirección de arte' },
+    { value: 'PRODUCTION_DESIGN', label: 'Diseño de producción' },
+    { value: 'VFX', label: 'Efectos visuales' },
+    { value: 'ANIMATION', label: 'Animación' },
+    { value: 'ACTING', label: 'Actuación' },
+  ];
+
+  isAdultBirthDate(birthDate: string): boolean {
+    const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(birthDate);
+
+    if (!match) {
+      return false;
+    }
+
+    const year = Number(match[1]);
+    const month = Number(match[2]);
+    const day = Number(match[3]);
+
+    const today = new Date();
+
+    const minimumBirthDate =
+      (today.getFullYear() - 18) * 10000 +
+      (today.getMonth() + 1) * 100 +
+      today.getDate();
+
+    const selectedBirthDate = year * 10000 + month * 100 + day;
+
+    return selectedBirthDate <= minimumBirthDate;
+  }
+
+  canRegisterAsCreator(): boolean {
+    return this.isAdultBirthDate(this.registerForm.controls.birthDate.value);
   }
 
   private returnUrl(): string {
