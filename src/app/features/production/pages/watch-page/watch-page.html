@@ -158,18 +158,21 @@
         min="0"
         [max]="duration() || 0"
         step="0.1"
-        [value]="currentTime()"
+        [value]="timelineTime()"
         [style.--progress.%]="
           duration() > 0
             ? (currentTime() / duration()) * 100
             : 0
         "
         aria-label="Posición del video"
-        (input)="seek($event)"
+        (pointerdown)="beginSeeking()"
+        (input)="previewSeek($event)"
+        (change)="commitSeek($event)"
+        (pointercancel)="cancelSeeking()"
       />
 
       <div class="watch-time">
-        <span>{{ formatTime(currentTime()) }}</span>
+        <span>{{ formatTime(timelineTime()) }}</span>
         <span>{{ formatTime(duration()) }}</span>
       </div>
     </div>

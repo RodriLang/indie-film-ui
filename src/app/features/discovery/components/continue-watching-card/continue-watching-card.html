@@ -1,0 +1,56 @@
+<article class="continue-card">
+  <a
+    class="continue-link"
+    [routerLink]="['/watch', item().slug]"
+    [queryParams]="{ videoId: item().videoId }"
+    [attr.aria-label]="'Continuar ' + item().productionTitle"
+  >
+    <div class="continue-art">
+      @if (imageUrl(); as image) {
+      <img [src]="image" [alt]="item().productionTitle" loading="lazy" />
+      } @else {
+      <div class="continue-fallback"></div>
+      } @if (isNextEpisode()) {
+      <span class="next-episode-badge"> Siguiente episodio </span>
+      } @if (showProgress()) {
+      <div class="progress-track" aria-hidden="true">
+        <span [style.width.%]="item().progressPercent"></span>
+      </div>
+      }
+    </div>
+
+    <div class="continue-copy">
+      <strong>{{ item().productionTitle }}</strong>
+      <span>{{ subtitle() }}</span>
+    </div>
+  </a>
+
+  <button
+    class="card-menu-trigger"
+    type="button"
+    aria-label="Más opciones"
+    [attr.aria-expanded]="menuOpen()"
+    (click)="toggleMenu($event)"
+  >
+    ⋯
+  </button>
+
+  @if (menuOpen()) {
+  <div class="card-menu">
+    @if (canMarkWatched()) {
+    <button type="button" [disabled]="busy()" (click)="markAsWatched($event)">
+      Marcar como visto
+    </button>
+    }
+
+    <button
+      class="danger"
+      type="button"
+      [disabled]="busy()"
+      (click)="removeActivity($event)"
+    >
+      Borrar actividad de visualización
+    </button>
+  </div>
+  }
+</article>

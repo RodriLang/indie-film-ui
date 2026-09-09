@@ -151,6 +151,7 @@ export class VideoPlayer implements AfterViewInit, OnDestroy {
   private player: YoutubePlayer | null = null;
   private playerReady = false;
   private destroyed = false;
+  private playbackEnded = false;
 
   private observer: IntersectionObserver | null = null;
 
@@ -226,7 +227,7 @@ export class VideoPlayer implements AfterViewInit, OnDestroy {
         videoId: playback.externalId,
         host: 'https://www.youtube-nocookie.com',
         playerVars: {
-          autoplay: this.autoplay() ? 1 : 0,
+          autoplay: 0,
           mute: this.muted() ? 1 : 0,
           controls: this.controls() ? 1 : 0,
           playsinline: 1,
@@ -256,8 +257,17 @@ export class VideoPlayer implements AfterViewInit, OnDestroy {
 
           onStateChange: (event) => {
             if (event.data === youtube.PlayerState.PLAYING) {
+              /*
+               * Algunos embeds pueden intentar volver a reproducirse
+               * después de ENDED. Mientras siga marcado como finalizado,
+               * no permitimos ese reinicio automático.
+               */
+              if (this.playbackEnded) {
+                event.target.pauseVideo();
+                return;
+              }
+
               this.playingChanged.emit(true);
-              this.startProgressTimer();
               this.startProgressTimer();
               this.startTimeTimer();
               return;
@@ -266,20 +276,25 @@ export class VideoPlayer implements AfterViewInit, OnDestroy {
             if (event.data === youtube.PlayerState.PAUSED) {
               this.playingChanged.emit(false);
               this.stopProgressTimer();
-              this.emitProgress(false);
-              this.stopProgressTimer();
               this.stopTimeTimer();
+
+              if (!this.playbackEnded) {
+                this.emitProgress(false);
+              }
+
               return;
             }
 
             if (event.data === youtube.PlayerState.ENDED) {
-              this.playingChanged.emit(false);
-              this.stopProgressTimer();
+              this.playbackEnded = true;
 
+              this.playingChanged.emit(false);
               this.stopProgressTimer();
               this.stopTimeTimer();
 
               this.emitProgress(true);
+              event.target.pauseVideo();
+
               this.ended.emit();
             }
           },
@@ -311,8 +326,12 @@ export class VideoPlayer implements AfterViewInit, OnDestroy {
   ngOnDestroy(): void {
     this.destroyed = true;
 
-    this.emitProgress(false);
+    if (!this.playbackEnded) {
+      this.emitProgress(false);
+    }
+
     this.stopProgressTimer();
+    this.stopTimeTimer();
 
     this.observer?.disconnect();
     this.observer = null;
@@ -331,11 +350,16 @@ export class VideoPlayer implements AfterViewInit, OnDestroy {
   }
 
   play(): void {
-    if (!this.playerReady) {
+    if (!this.player || !this.playerReady) {
       return;
     }
 
-    this.player?.playVideo();
+    if (this.playbackEnded) {
+      this.playbackEnded = false;
+      this.player.seekTo(0, true);
+    }
+
+    this.player.playVideo();
   }
 
   pause(): void {
@@ -365,7 +389,6 @@ export class VideoPlayer implements AfterViewInit, OnDestroy {
     const position = Math.max(0, Math.min(seconds, duration));
 
     this.player.seekTo(position, true);
-    this.emitTime();
   }
 
   private createVisibilityObserver(): void {
@@ -405,7 +428,6 @@ export class VideoPlayer implements AfterViewInit, OnDestroy {
     }
 
     const currentTime = this.player.getCurrentTime();
-
     const duration = this.player.getDuration();
 
     if (
@@ -417,7 +439,9 @@ export class VideoPlayer implements AfterViewInit, OnDestroy {
     }
 
     this.progress.emit({
-      positionSeconds: Math.max(0, Math.floor(currentTime)),
+      positionSeconds: ended
+        ? Math.max(1, Math.floor(duration))
+        : Math.max(0, Math.floor(currentTime)),
       durationSeconds: Math.max(1, Math.floor(duration)),
       ended,
     });

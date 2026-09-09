@@ -73,6 +73,8 @@ export class WatchPage implements OnInit, OnDestroy {
   readonly video = signal<ProductionVideo | null>(null);
   readonly playback = signal<ProductionVideoPlayback | null>(null);
 
+  readonly seekPreview = signal<number | null>(null);
+
   readonly loading = signal(true);
   readonly playbackLoading = signal(false);
   readonly error = signal<string | null>(null);
@@ -139,7 +141,13 @@ export class WatchPage implements OnInit, OnDestroy {
     });
   }
 
-  seek(event: Event): void {
+  beginSeeking(): void {
+    clearTimeout(this.controlsTimer);
+
+    this.seekPreview.set(this.currentTime());
+  }
+
+  previewSeek(event: Event): void {
     const input = event.target as HTMLInputElement;
 
     const seconds = Number(input.value);
@@ -148,8 +156,36 @@ export class WatchPage implements OnInit, OnDestroy {
       return;
     }
 
-    this.currentTime.set(seconds);
-    this.videoPlayer()?.seekTo(seconds);
+    this.seekPreview.set(seconds);
+  }
+
+  commitSeek(event: Event): void {
+  const input = event.target as HTMLInputElement;
+  const seconds = Number(input.value);
+
+  if (!Number.isFinite(seconds)) {
+    return;
+  }
+
+  this.seekPreview.set(seconds);
+  this.currentTime.set(seconds);
+
+  this.videoPlayer()?.seekTo(seconds);
+
+  this.scheduleControlsHide();
+}
+
+  cancelSeeking(): void {
+    this.seekPreview.set(null);
+    this.scheduleControlsHide();
+  }
+
+  endSeeking(): void {
+    this.scheduleControlsHide();
+  }
+
+  timelineTime(): number {
+    return this.seekPreview() ?? this.currentTime();
   }
 
   formatTime(seconds: number): string {
@@ -162,9 +198,23 @@ export class WatchPage implements OnInit, OnDestroy {
   }
 
   onVideoTimeChanged(time: VideoPlaybackTime): void {
-    this.currentTime.set(time.positionSeconds);
-    this.duration.set(time.durationSeconds);
+  this.duration.set(time.durationSeconds);
+
+  const preview = this.seekPreview();
+
+  if (preview !== null) {
+    const reachedTarget =
+      Math.abs(time.positionSeconds - preview) <= 1.5;
+
+    if (!reachedTarget) {
+      return;
+    }
+
+    this.seekPreview.set(null);
   }
+
+  this.currentTime.set(time.positionSeconds);
+}
 
   saveBirthDate(): void {
     const birthDate = this.birthDateInput();

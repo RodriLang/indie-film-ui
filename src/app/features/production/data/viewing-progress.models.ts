@@ -1,4 +1,10 @@
-import { ProductionVideoKind } from './production.models';
+import { PageResponse } from '../../../core/api/api.models';
+
+import {
+  ProductionStructure,
+  ProductionType,
+  ProductionVideoKind,
+} from './production.models';
 
 export type ResumeType =
   | 'START'
@@ -31,3 +37,56 @@ export interface ProductionProgress {
   resumeType: ResumeType;
   videos: VideoProgress[];
 }
+
+export interface ContinueWatching {
+  productionId: number;
+  slug: string;
+  productionTitle: string;
+  posterUrl?: string | null;
+  productionType: ProductionType;
+  releaseYear?: number | null;
+  structure: ProductionStructure;
+
+  videoId: number;
+  kind: ProductionVideoKind;
+  videoTitle?: string | null;
+  episodeNumber?: number | null;
+  thumbnailUrl?: string | null;
+
+  positionSeconds: number;
+  resumePositionSeconds: number;
+  durationSeconds?: number | null;
+  progressPercent: number;
+
+  resumeType: ResumeType;
+  lastWatchedAt: string;
+}
+
+export interface WatchHistory {
+  productionId: number;
+  slug: string;
+  productionTitle: string;
+  posterUrl?: string | null;
+  productionType: ProductionType;
+  releaseYear?: number | null;
+  structure: ProductionStructure;
+
+  videoId: number;
+  kind: ProductionVideoKind;
+  videoTitle?: string | null;
+  episodeNumber?: number | null;
+  thumbnailUrl?: string | null;
+
+  positionSeconds: number;
+  resumePositionSeconds: number;
+  durationSeconds: number;
+  progressPercent: number;
+
+  completed: boolean;
+  completedAt?: string | null;
+  lastWatchedAt: string;
+}
+
+export type ContinueWatchingPage = PageResponse<ContinueWatching>;
+
+export type WatchHistoryPage = PageResponse<WatchHistory>;
