@@ -1,9 +1,16 @@
-import { inject } from '@angular/core';
+import { isPlatformBrowser } from '@angular/common';
+import { inject, PLATFORM_ID } from '@angular/core';
 import { CanActivateFn, Router } from '@angular/router';
 
 import { AuthStore } from './auth.store';
 
 export const authGuard: CanActivateFn = (_route, state) => {
+  const platformId = inject(PLATFORM_ID);
+
+  if (!isPlatformBrowser(platformId)) {
+    return true;
+  }
+
   const authStore = inject(AuthStore);
   const router = inject(Router);
 
@@ -12,6 +19,6 @@ export const authGuard: CanActivateFn = (_route, state) => {
   }
 
   return router.createUrlTree(['/auth'], {
-    queryParams: { returnUrl: state.url }
+    queryParams: { returnUrl: state.url },
   });
 };

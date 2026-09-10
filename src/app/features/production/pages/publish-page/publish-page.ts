@@ -13,13 +13,23 @@ import { finalize, switchMap } from 'rxjs';
 import {
   LucideCheck,
   LucideEdit3,
+  LucideLink,
   LucidePlus,
+  LucideSquarePen,
+  LucideTrash,
   LucideTrash2,
+  LucideUnlink,
+  LucideUserRound,
   LucideX,
 } from '@lucide/angular';
 
 import { apiErrorMessage } from '../../../../core/api/http-error';
 import { AuthStore } from '../../../../core/auth/auth.store';
+import { CreatorApi } from '../../../user/data/creator.api';
+import {
+  CreatorCreditSuggestion,
+  CREATOR_SPECIALTY_OPTIONS,
+} from '../../../user/data/creator.models';
 import { ProductionApi } from '../../data/production.api';
 import {
   CONTENT_ADVISORY_OPTIONS,
@@ -41,9 +51,14 @@ import {
 } from '../../data/production.models';
 
 type DraftExternalCredit = {
+  id: number;
   personName: string;
   role: CreditRole;
   roleDetail: string;
+  requestedCreator: CreatorCreditSuggestion | null;
+  suggestions: CreatorCreditSuggestion[];
+  suggestionsOpen: boolean;
+  suggestionsLoading: boolean;
 };
 
 @Component({
@@ -52,9 +67,12 @@ type DraftExternalCredit = {
     ReactiveFormsModule,
     RouterLink,
     LucideCheck,
-    LucideEdit3,
+    LucideLink,
     LucidePlus,
-    LucideTrash2,
+    LucideSquarePen,
+    LucideTrash,
+    LucideUnlink,
+    LucideUserRound,
     LucideX,
   ],
   templateUrl: './publish-page.html',
@@ -66,6 +84,7 @@ export class PublishPage implements OnInit {
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
   private readonly productionApi = inject(ProductionApi);
+  private readonly creatorApi = inject(CreatorApi);
   private readonly authStore = inject(AuthStore);
   private readonly destroyRef = inject(DestroyRef);
 
@@ -94,6 +113,12 @@ export class PublishPage implements OnInit {
   readonly editingVideoId = signal<number | null>(null);
   readonly genres = signal<Genre[]>([]);
   readonly selectedGenreIds = signal<Set<number>>(new Set());
+
+  private externalCreditSequence = 0;
+  private readonly suggestionTimers = new Map<
+    number,
+    ReturnType<typeof setTimeout>
+  >();
 
   readonly detailsForm = this.fb.group({
     title: this.fb.nonNullable.control('', [
@@ -225,13 +250,61 @@ export class PublishPage implements OnInit {
   addExternalCredit(): void {
     this.externalCredits.update((credits) => [
       ...credits,
-      { personName: '', role: 'OTHER', roleDetail: '' },
+      {
+        id: ++this.externalCreditSequence,
+        personName: '',
+        role: 'OTHER',
+        roleDetail: '',
+        requestedCreator: null,
+        suggestions: [],
+        suggestionsOpen: false,
+        suggestionsLoading: false,
+      },
     ]);
   }
 
   removeExternalCredit(index: number): void {
+    const credit = this.externalCredits()[index];
+
+    if (credit) {
+      const timer = this.suggestionTimers.get(credit.id);
+      if (timer) {
+        clearTimeout(timer);
+        this.suggestionTimers.delete(credit.id);
+      }
+    }
+
     this.externalCredits.update((credits) =>
       credits.filter((_, current) => current !== index),
+    );
+  }
+
+  useOnlyPersonName(index: number): void {
+    const credit = this.externalCredits()[index];
+
+    if (!credit) {
+      return;
+    }
+
+    const timer = this.suggestionTimers.get(credit.id);
+
+    if (timer) {
+      clearTimeout(timer);
+      this.suggestionTimers.delete(credit.id);
+    }
+
+    this.externalCredits.update((credits) =>
+      credits.map((item, current) =>
+        current === index
+          ? {
+              ...item,
+              requestedCreator: null,
+              suggestions: [],
+              suggestionsOpen: false,
+              suggestionsLoading: false,
+            }
+          : item,
+      ),
     );
   }
 
@@ -259,6 +332,69 @@ export class PublishPage implements OnInit {
         return { ...credit, roleDetail: value };
       }),
     );
+
+    if (field === 'personName') {
+      this.scheduleCreatorSuggestions(index, value);
+    }
+  }
+
+  selectCreatorSuggestion(
+    index: number,
+    suggestion: CreatorCreditSuggestion,
+  ): void {
+    this.externalCredits.update((credits) =>
+      credits.map((credit, current) =>
+        current === index
+          ? {
+              ...credit,
+              personName: suggestion.displayName,
+              requestedCreator: suggestion,
+              suggestions: [],
+              suggestionsOpen: false,
+              suggestionsLoading: false,
+            }
+          : credit,
+      ),
+    );
+  }
+
+  clearCreatorSelection(index: number): void {
+    this.externalCredits.update((credits) =>
+      credits.map((credit, current) =>
+        current === index
+          ? {
+              ...credit,
+              requestedCreator: null,
+              suggestions: [],
+              suggestionsOpen: false,
+            }
+          : credit,
+      ),
+    );
+
+    const query = this.externalCredits()[index]?.personName ?? '';
+    this.scheduleCreatorSuggestions(index, query);
+  }
+
+  closeCreatorSuggestions(index: number): void {
+    setTimeout(() => {
+      this.externalCredits.update((credits) =>
+        credits.map((credit, current) =>
+          current === index ? { ...credit, suggestionsOpen: false } : credit,
+        ),
+      );
+    }, 120);
+  }
+
+  creatorSpecialties(suggestion: CreatorCreditSuggestion): string {
+    return suggestion.specialties
+      .slice(0, 3)
+      .map(
+        (specialty) =>
+          CREATOR_SPECIALTY_OPTIONS.find((option) => option.value === specialty)
+            ?.label ?? specialty,
+      )
+      .join(' · ');
   }
 
   genreSelected(genreId: number): boolean {
@@ -753,10 +889,11 @@ export class PublishPage implements OnInit {
 
     if (ownRole && user) {
       credits.push({
-        userId: user.id,
+        personName: user.displayName,
         role: ownRole,
         roleDetail: ownRoleDetail.trim() || null,
         displayOrder: credits.length,
+        requestedCreatorId: user.role === 'CREATOR' ? user.id : null,
       });
     }
 
@@ -770,10 +907,89 @@ export class PublishPage implements OnInit {
         role: credit.role,
         roleDetail: credit.roleDetail.trim() || null,
         displayOrder: credits.length,
+        requestedCreatorId: credit.requestedCreator?.id ?? null,
       });
     }
 
     return credits;
+  }
+
+  private scheduleCreatorSuggestions(index: number, query: string): void {
+    const credit = this.externalCredits()[index];
+    if (!credit || credit.requestedCreator) {
+      return;
+    }
+
+    const previousTimer = this.suggestionTimers.get(credit.id);
+    if (previousTimer) {
+      clearTimeout(previousTimer);
+    }
+
+    const normalizedQuery = query.trim();
+    if (normalizedQuery.length < 2) {
+      this.externalCredits.update((credits) =>
+        credits.map((item, current) =>
+          current === index
+            ? {
+                ...item,
+                suggestions: [],
+                suggestionsOpen: false,
+                suggestionsLoading: false,
+              }
+            : item,
+        ),
+      );
+      return;
+    }
+
+    const timer = setTimeout(() => {
+      this.externalCredits.update((credits) =>
+        credits.map((item) =>
+          item.id === credit.id
+            ? { ...item, suggestionsLoading: true, suggestionsOpen: true }
+            : item,
+        ),
+      );
+
+      this.creatorApi
+        .findCreditSuggestions(normalizedQuery)
+        .pipe(takeUntilDestroyed(this.destroyRef))
+        .subscribe({
+          next: (suggestions) => {
+            this.externalCredits.update((credits) =>
+              credits.map((item) =>
+                item.id === credit.id &&
+                !item.requestedCreator &&
+                item.personName.trim() === normalizedQuery
+                  ? {
+                      ...item,
+                      suggestions,
+                      suggestionsOpen: true,
+                      suggestionsLoading: false,
+                    }
+                  : item,
+              ),
+            );
+          },
+          error: () => {
+            this.externalCredits.update((credits) =>
+              credits.map((item) =>
+                item.id === credit.id &&
+                item.personName.trim() === normalizedQuery
+                  ? {
+                      ...item,
+                      suggestions: [],
+                      suggestionsOpen: false,
+                      suggestionsLoading: false,
+                    }
+                  : item,
+              ),
+            );
+          },
+        });
+    }, 250);
+
+    this.suggestionTimers.set(credit.id, timer);
   }
 
   private loadGenres(): void {

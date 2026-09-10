@@ -15,8 +15,9 @@ import {
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { finalize } from 'rxjs';
 
-import { apiErrorMessage } from '../../../../core/api/http-error';
+import { apiErrorCode, apiErrorMessage } from '../../../../core/api/http-error';
 import { AuthApi } from '../../../../core/auth/auth.api';
+import { AuthSessionService } from '../../../../core/auth/auth-session.service';
 import { AuthStore } from '../../../../core/auth/auth.store';
 import { RegistrationRole } from '../../../../core/auth/auth.models';
 import { CreatorSpecialty } from '../../../user/data/creator.models';
@@ -51,6 +52,7 @@ function pastDateValidator(
 export class AuthPage {
   private readonly fb = inject(FormBuilder);
   private readonly authApi = inject(AuthApi);
+  private readonly authSession = inject(AuthSessionService);
   private readonly authStore = inject(AuthStore);
   private readonly router = inject(Router);
   private readonly route = inject(ActivatedRoute);
@@ -132,15 +134,24 @@ export class AuthPage {
     this.submitting.set(true);
     this.error.set(null);
 
-    this.authApi
+    this.authSession
       .login(this.loginForm.getRawValue())
       .pipe(finalize(() => this.submitting.set(false)))
       .subscribe({
-        next: (response) => {
-          this.authStore.setSession(response);
+        next: () => {
           void this.router.navigateByUrl(this.returnUrl());
         },
         error: (error) => {
+          if (apiErrorCode(error) === 'EMAIL_NOT_VERIFIED') {
+            void this.router.navigate(['/verify-email'], {
+              queryParams: {
+                email: this.loginForm.controls.email.value,
+                returnUrl: this.returnUrl(),
+              },
+            });
+            return;
+          }
+
           this.error.set(apiErrorMessage(error, 'No pudimos iniciar sesión.'));
         },
       });
@@ -160,8 +171,12 @@ export class AuthPage {
       .pipe(finalize(() => this.submitting.set(false)))
       .subscribe({
         next: (response) => {
-          this.authStore.setSession(response);
-          void this.router.navigateByUrl(this.returnUrl());
+          void this.router.navigate(['/verify-email'], {
+            queryParams: {
+              email: response.email,
+              returnUrl: this.returnUrl(),
+            },
+          });
         },
         error: (error) => {
           this.error.set(apiErrorMessage(error, 'No pudimos crear la cuenta.'));

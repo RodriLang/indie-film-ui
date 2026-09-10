@@ -121,15 +121,103 @@
             </label>
           </div>
 
-          @for (credit of externalCredits(); track $index; let index = $index) {
+          @for (credit of externalCredits(); track credit.id; let index =
+          $index) {
           <div class="external-credit">
-            <input
-              type="text"
-              placeholder="Nombre"
-              [value]="credit.personName"
-              (input)="updateExternalCredit(index, 'personName', $event)"
-            />
+            <div class="credit-person-field">
+              <input
+                type="text"
+                placeholder="Nombre acreditado"
+                autocomplete="off"
+                [value]="credit.personName"
+                (input)="updateExternalCredit(index, 'personName', $event)"
+                (focus)="updateExternalCredit(index, 'personName', $event)"
+                (blur)="closeCreatorSuggestions(index)"
+              />
+
+              @if (credit.requestedCreator; as creator) {
+              <div class="selected-creator">
+                <svg lucideLink></svg>
+
+                <span>
+                  Vincular con <strong>@{{ creator.username }}</strong>
+                </span>
+
+                <button
+                  type="button"
+                  aria-label="Quitar vinculación con creador"
+                  (click)="clearCreatorSelection(index)"
+                >
+                  <svg lucideX></svg>
+                </button>
+              </div>
+              } @else if (credit.suggestionsOpen) {
+              <div class="creator-suggestions">
+                <button
+                  type="button"
+                  class="creator-suggestion creator-suggestion--nominal"
+                  (mousedown)="$event.preventDefault()"
+                  (click)="useOnlyPersonName(index)"
+                >
+                  <span class="suggestion-avatar nominal">
+                    <svg lucideUnlink></svg>
+                  </span>
+
+                  <span class="suggestion-copy">
+                    <strong>Usar sólo este nombre</strong>
+                    <span class="suggestion-meta">
+                      <small>No vincular a ninguna cuenta</small>
+                    </span>
+                  </span>
+                </button>
+
+                <div class="suggestion-divider"></div>
+
+                @if (credit.suggestionsLoading) {
+                <div class="suggestion-state">Buscando creadores…</div>
+                } @else if (credit.suggestions.length === 0) {
+                <div class="suggestion-state">
+                  No encontramos perfiles de creador.
+                </div>
+                } @else { @for (suggestion of credit.suggestions; track
+                suggestion.id) {
+                <button
+                  type="button"
+                  class="creator-suggestion"
+                  (mousedown)="$event.preventDefault()"
+                  (click)="selectCreatorSuggestion(index, suggestion)"
+                >
+                  <span class="suggestion-avatar">
+                    @if (suggestion.avatarUrl) {
+                    <img
+                      [src]="suggestion.avatarUrl"
+                      [alt]="suggestion.displayName"
+                    />
+                    } @else {
+                    <svg lucideUserRound></svg>
+                    }
+                  </span>
+
+                  <span class="suggestion-copy">
+                    <strong>{{ suggestion.displayName }}</strong>
+
+                    <span class="suggestion-meta">
+                      <small>@{{ suggestion.username }}</small>
+
+                      @if (creatorSpecialties(suggestion)) {
+                      <span class="suggestion-separator">·</span>
+                      <small>{{ creatorSpecialties(suggestion) }}</small>
+                      }
+                    </span>
+                  </span>
+                </button>
+                } }
+              </div>
+              }
+            </div>
+
             <select
+              class="credit-role-select"
               [value]="credit.role"
               (change)="updateExternalCredit(index, 'role', $event)"
             >
@@ -137,14 +225,18 @@
               <option [value]="role.value">{{ role.label }}</option>
               }
             </select>
+
             <input
               type="text"
+              class="credit-detail-input"
               placeholder="Detalle"
               [value]="credit.roleDetail"
               (input)="updateExternalCredit(index, 'roleDetail', $event)"
             />
+
             <button
               type="button"
+              class="remove-credit-button"
               aria-label="Quitar crédito"
               (click)="removeExternalCredit(index)"
             >
@@ -211,7 +303,7 @@
             aria-label="Editar video"
             (click)="editVideo(video)"
           >
-            <svg lucideEdit3></svg>
+            <svg lucideSquarePen></svg>
           </button>
           <button
             class="danger-icon"
@@ -220,7 +312,7 @@
             (click)="removeVideo(video)"
             [disabled]="busy()"
           >
-            <svg lucideTrash2></svg>
+            <svg lucideTrash></svg>
           </button>
           }
         </div>

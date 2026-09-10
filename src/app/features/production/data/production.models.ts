@@ -99,7 +99,7 @@ export interface ProductionVideo {
 export interface ProductionCredit {
   id: number;
   user?: CreatorSummary | null;
-  personName?: string | null;
+  personName: string;
   role: CreditRole;
   roleDetail?: string | null;
   displayOrder: number;
@@ -160,11 +160,11 @@ export interface Production extends ProductionSummary {
 }
 
 export interface ProductionCreditRequest {
-  userId?: number | null;
-  personName?: string | null;
+  personName: string;
   role: CreditRole;
   roleDetail?: string | null;
   displayOrder: number;
+  requestedCreatorId?: number | null;
 }
 
 export interface CreateProductionRequest {

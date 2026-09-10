@@ -1,4 +1,5 @@
 import { isPlatformBrowser } from '@angular/common';
+import { ReactiveFormsModule, FormBuilder, Validators } from '@angular/forms';
 import {
   ChangeDetectionStrategy,
   Component,
@@ -15,11 +16,15 @@ import {
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import {
+  LucideCheck,
   LucideHeart,
   LucideLayers3,
+  LucideLink,
   LucidePlay,
+  LucideUnlink,
   LucideVolume2,
   LucideVolumeX,
+  LucideX,
 } from '@lucide/angular';
 
 import { apiErrorMessage } from '../../../../core/api/http-error';
@@ -29,10 +34,17 @@ import { AutoplayTrailerPlayer } from '../../../discovery/components/autoplay-tr
 import { MediaRail } from '../../../../shared/ui/media-rail/media-rail';
 import { MediaRailItem } from '../../../../shared/ui/media-rail/media-rail-item';
 import { EpisodeCard } from '../../components/episode-card/episode-card';
+import { CreditLinkRequestApi } from '../../data/credit-link-request.api';
+import {
+  ProductionCreditLinkRequest,
+} from '../../data/credit-link-request.models';
 import { ProductionApi } from '../../data/production.api';
 import {
+  CREDIT_ROLE_OPTIONS,
+  CreditRole,
   creditRoleLabel,
   Production,
+  ProductionCredit,
   ProductionVideo,
   ProductionVideoPlayback,
   productionTypeLabel,
@@ -42,15 +54,20 @@ import {
   selector: 'app-production-detail-page',
   imports: [
     RouterLink,
+    ReactiveFormsModule,
     MediaRail,
     MediaRailItem,
     EpisodeCard,
     AutoplayTrailerPlayer,
+    LucideCheck,
     LucideHeart,
     LucideLayers3,
+    LucideLink,
     LucidePlay,
+    LucideUnlink,
     LucideVolume2,
     LucideVolumeX,
+    LucideX,
   ],
   templateUrl: './production-detail-page.html',
   styleUrl: './production-detail-page.scss',
@@ -62,7 +79,9 @@ export class ProductionDetailPage implements OnInit, OnDestroy {
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
   private readonly productionApi = inject(ProductionApi);
-  private readonly authStore = inject(AuthStore);
+  private readonly creditLinkRequestApi = inject(CreditLinkRequestApi);
+  private readonly fb = inject(FormBuilder);
+  readonly authStore = inject(AuthStore);
   private readonly destroyRef = inject(DestroyRef);
   private readonly platformId = inject(PLATFORM_ID);
   private readonly playbackPreferences = inject(PlaybackPreferences);
@@ -84,6 +103,23 @@ export class ProductionDetailPage implements OnInit, OnDestroy {
   readonly heroPosterFailed = signal(false);
   readonly heroLandscapeFailed = signal(false);
   readonly titleArtFailed = signal(false);
+  readonly creditRequests = signal<ProductionCreditLinkRequest[]>([]);
+  readonly creditContextLoading = signal(false);
+  readonly creditActionBusy = signal<number | null>(null);
+  readonly expandedCreditId = signal<number | null>(null);
+  readonly newClaimOpen = signal(false);
+  readonly creditNotice = signal<string | null>(null);
+  readonly creditError = signal<string | null>(null);
+  readonly creditRoles = CREDIT_ROLE_OPTIONS;
+
+  readonly newClaimForm = this.fb.group({
+    personName: this.fb.nonNullable.control('', [
+      Validators.required,
+      Validators.maxLength(150),
+    ]),
+    role: this.fb.nonNullable.control<CreditRole>('OTHER', Validators.required),
+    roleDetail: this.fb.nonNullable.control('', Validators.maxLength(100)),
+  });
 
   readonly heroVisible = signal(false);
 
@@ -165,6 +201,7 @@ export class ProductionDetailPage implements OnInit, OnDestroy {
           this.production.set(production);
           this.selectedVideo.set(this.initialVideo(production));
           this.loading.set(false);
+          this.loadCreditContext();
         },
         error: (error) => {
           this.error.set(
@@ -277,6 +314,320 @@ export class ProductionDetailPage implements OnInit, OnDestroy {
       error: () => {
         this.liking.set(false);
       },
+    });
+  }
+
+  toggleCreditContext(credit: ProductionCredit): void {
+    if (credit.user) {
+      return;
+    }
+
+    this.expandedCreditId.update((current) =>
+      current === credit.id ? null : credit.id,
+    );
+    this.creditNotice.set(null);
+    this.creditError.set(null);
+  }
+
+  pendingInvitation(): ProductionCreditLinkRequest | null {
+    const userId = this.authStore.user()?.id;
+    if (!userId) {
+      return null;
+    }
+
+    return (
+      this.creditRequests().find(
+        (request) =>
+          request.type === 'OWNER_INVITATION' &&
+          request.status === 'PENDING' &&
+          request.requestedUser.id === userId,
+      ) ?? null
+    );
+  }
+
+  pendingRequestForCredit(creditId: number): ProductionCreditLinkRequest | null {
+    return (
+      this.creditRequests().find(
+        (request) =>
+          request.status === 'PENDING' && request.credit?.id === creditId,
+      ) ?? null
+    );
+  }
+
+  pendingNewClaim(): ProductionCreditLinkRequest | null {
+    const userId = this.authStore.user()?.id;
+    if (!userId) {
+      return null;
+    }
+
+    return (
+      this.creditRequests().find(
+        (request) =>
+          request.type === 'USER_CLAIM' &&
+          request.status === 'PENDING' &&
+          request.requestedBy.id === userId &&
+          !request.credit,
+      ) ?? null
+    );
+  }
+
+  isOwnProduction(): boolean {
+    const userId = this.authStore.user()?.id;
+    return !!userId && this.production()?.submittedBy.id === userId;
+  }
+
+  canClaimCredits(): boolean {
+    return this.authStore.user()?.role === 'CREATOR';
+  }
+
+  explainUnlinkedCredit(credit: ProductionCredit): string {
+    const request = this.pendingRequestForCredit(credit.id);
+    const currentUserId = this.authStore.user()?.id;
+
+    if (
+      request?.type === 'OWNER_INVITATION' &&
+      request.requestedUser.id === currentUserId
+    ) {
+      return 'Este crédito todavía no está vinculado. Tenés una invitación pendiente para asociarlo a tu perfil.';
+    }
+
+    if (
+      request?.type === 'USER_CLAIM' &&
+      request.requestedBy.id === currentUserId
+    ) {
+      return 'Este crédito todavía no está vinculado. Tu reclamo ya fue enviado y está pendiente de aprobación.';
+    }
+
+    if (this.pendingInvitation()) {
+      return 'Este crédito no está vinculado a una cuenta. Primero resolvé la invitación pendiente que tenés en esta producción.';
+    }
+
+    if (!this.authStore.authenticated()) {
+      return 'Este nombre figura en los créditos, pero todavía no está vinculado a una cuenta de creador.';
+    }
+
+    if (!this.canClaimCredits()) {
+      return 'Este nombre figura en los créditos, pero no está vinculado a una cuenta. Para reclamarlo necesitás convertir tu cuenta en un perfil de creador.';
+    }
+
+    if (this.isOwnProduction()) {
+      return 'Este nombre figura en los créditos, pero todavía no está vinculado a una cuenta de creador.';
+    }
+
+    return 'Este nombre figura en los créditos, pero todavía no está vinculado a una cuenta. Si sos vos, podés solicitar la vinculación.';
+  }
+
+  claimExistingCredit(credit: ProductionCredit): void {
+    const production = this.production();
+    if (!production || this.creditActionBusy()) {
+      return;
+    }
+
+    if (!this.authStore.authenticated()) {
+      this.goToAuth();
+      return;
+    }
+
+    if (!this.canClaimCredits()) {
+      this.creditError.set('Para reclamar una participación necesitás convertir tu cuenta en un perfil de creador.');
+      return;
+    }
+
+    if (this.pendingInvitation()) {
+      this.creditError.set('Primero resolvé la invitación pendiente de esta producción.');
+      return;
+    }
+
+    this.creditActionBusy.set(credit.id);
+    this.creditError.set(null);
+    this.creditNotice.set(null);
+
+    this.creditLinkRequestApi
+      .claimExistingCredit(production.slug, credit.id)
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: (request) => {
+          this.upsertCreditRequest(request);
+          this.creditActionBusy.set(null);
+          this.creditNotice.set('Reclamo enviado. El responsable de la producción debe aprobarlo.');
+        },
+        error: (error) => {
+          this.creditActionBusy.set(null);
+          this.creditError.set(apiErrorMessage(error, 'No pudimos enviar el reclamo.'));
+        },
+      });
+  }
+
+  openNewClaim(): void {
+    if (!this.authStore.authenticated()) {
+      this.goToAuth();
+      return;
+    }
+
+    if (!this.canClaimCredits()) {
+      this.creditError.set('Para reclamar una participación necesitás convertir tu cuenta en un perfil de creador.');
+      return;
+    }
+
+    if (this.pendingInvitation()) {
+      this.creditError.set('Primero resolvé la invitación pendiente de esta producción.');
+      return;
+    }
+
+    const user = this.authStore.user();
+    this.newClaimForm.reset({
+      personName: user?.displayName ?? '',
+      role: 'OTHER',
+      roleDetail: '',
+    });
+    this.newClaimOpen.set(true);
+    this.creditError.set(null);
+    this.creditNotice.set(null);
+  }
+
+  closeNewClaim(): void {
+    this.newClaimOpen.set(false);
+  }
+
+  submitNewClaim(): void {
+    const production = this.production();
+    if (!production || this.newClaimForm.invalid || this.creditActionBusy()) {
+      this.newClaimForm.markAllAsTouched();
+      return;
+    }
+
+    const value = this.newClaimForm.getRawValue();
+    this.creditActionBusy.set(-1);
+    this.creditError.set(null);
+    this.creditNotice.set(null);
+
+    this.creditLinkRequestApi
+      .claimNewCredit(production.slug, {
+        personName: value.personName.trim(),
+        role: value.role,
+        roleDetail: value.roleDetail.trim() || null,
+      })
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: (request) => {
+          this.upsertCreditRequest(request);
+          this.creditActionBusy.set(null);
+          this.newClaimOpen.set(false);
+          this.creditNotice.set('Solicitud enviada. El responsable de la producción debe aprobarla.');
+        },
+        error: (error) => {
+          this.creditActionBusy.set(null);
+          this.creditError.set(apiErrorMessage(error, 'No pudimos enviar la solicitud.'));
+        },
+      });
+  }
+
+  acceptCreditRequest(request: ProductionCreditLinkRequest): void {
+    this.resolveCreditRequest(request, 'accept');
+  }
+
+  rejectCreditRequest(request: ProductionCreditLinkRequest): void {
+    this.resolveCreditRequest(request, 'reject');
+  }
+
+  cancelCreditRequest(request: ProductionCreditLinkRequest): void {
+    this.resolveCreditRequest(request, 'cancel');
+  }
+
+  goToAuth(): void {
+    void this.router.navigate(['/auth'], {
+      queryParams: { returnUrl: this.router.url },
+    });
+  }
+
+  private resolveCreditRequest(
+    request: ProductionCreditLinkRequest,
+    action: 'accept' | 'reject' | 'cancel',
+  ): void {
+    if (this.creditActionBusy()) {
+      return;
+    }
+
+    this.creditActionBusy.set(request.id);
+    this.creditError.set(null);
+    this.creditNotice.set(null);
+
+    const operation =
+      action === 'accept'
+        ? this.creditLinkRequestApi.accept(request.id)
+        : action === 'reject'
+          ? this.creditLinkRequestApi.reject(request.id)
+          : this.creditLinkRequestApi.cancel(request.id);
+
+    operation.pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
+      next: () => {
+        this.creditActionBusy.set(null);
+        this.expandedCreditId.set(null);
+        this.creditNotice.set(
+          action === 'accept'
+            ? 'Vinculación aceptada.'
+            : action === 'reject'
+              ? 'Solicitud rechazada.'
+              : 'Solicitud cancelada.',
+        );
+        this.reloadProductionAndCreditContext();
+      },
+      error: (error) => {
+        this.creditActionBusy.set(null);
+        this.creditError.set(apiErrorMessage(error, 'No pudimos actualizar la solicitud.'));
+      },
+    });
+  }
+
+  private loadCreditContext(): void {
+    const production = this.production();
+    if (!production || !this.authStore.authenticated()) {
+      this.creditRequests.set([]);
+      return;
+    }
+
+    this.creditContextLoading.set(true);
+    this.creditLinkRequestApi
+      .findForProduction(production.slug)
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: (requests) => {
+          this.creditRequests.set(requests);
+          this.creditContextLoading.set(false);
+        },
+        error: () => {
+          this.creditRequests.set([]);
+          this.creditContextLoading.set(false);
+        },
+      });
+  }
+
+  private reloadProductionAndCreditContext(): void {
+    const production = this.production();
+    if (!production) {
+      return;
+    }
+
+    this.productionApi
+      .findPublishedBySlug(production.slug)
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: (updated) => {
+          this.production.set(updated);
+          this.loadCreditContext();
+        },
+        error: () => this.loadCreditContext(),
+      });
+  }
+
+  private upsertCreditRequest(request: ProductionCreditLinkRequest): void {
+    this.creditRequests.update((requests) => {
+      const index = requests.findIndex((item) => item.id === request.id);
+      if (index < 0) {
+        return [request, ...requests];
+      }
+
+      return requests.map((item) => (item.id === request.id ? request : item));
     });
   }
 

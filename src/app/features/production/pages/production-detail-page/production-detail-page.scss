@@ -332,3 +332,398 @@
     top: var(--space-8);
   }
 }
+
+.credits-heading {
+  margin-bottom: var(--space-4);
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-4);
+
+  h2 {
+    margin: 0;
+  }
+
+  span {
+    color: var(--color-text-subtle);
+    font-size: 0.66rem;
+  }
+}
+
+.credit-entry {
+  border-bottom: 1px solid var(--color-border);
+}
+
+.credit-row {
+  border-bottom: 0;
+
+  &.expanded {
+    padding-bottom: 7px;
+  }
+}
+
+.credit-person {
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--color-text);
+  display: inline-flex;
+  align-items: center;
+  justify-self: start;
+  gap: 7px;
+  text-decoration: none;
+  text-align: left;
+
+  svg {
+    width: 14px;
+    height: 14px;
+    flex: 0 0 auto;
+    stroke-width: 1.8;
+  }
+
+  strong {
+    font: inherit;
+    font-size: 0.84rem;
+    font-weight: 640;
+  }
+
+  &.linked {
+    cursor: pointer;
+
+    svg {
+      color: var(--color-text-muted);
+    }
+
+    &:hover strong {
+      text-decoration: underline;
+      text-underline-offset: 3px;
+    }
+  }
+
+  &.unlinked {
+    cursor: pointer;
+
+    svg {
+      color: var(--color-text-subtle);
+      opacity: 0.55;
+    }
+
+    strong {
+      color: var(--color-text-muted);
+    }
+
+    &:hover strong,
+    &:focus-visible strong {
+      color: var(--color-text);
+    }
+  }
+}
+
+.unlinked-credit-context {
+  margin: -2px 0 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-1);
+  display: grid;
+  gap: 9px;
+
+  p {
+    margin: 0;
+    color: var(--color-text-muted);
+    font-size: 0.72rem;
+    line-height: 1.5;
+  }
+}
+
+.credit-invitation-card {
+  margin-bottom: var(--space-4);
+  padding: 13px;
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface-1);
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr);
+  gap: 10px;
+}
+
+.credit-invitation-icon {
+  width: 34px;
+  height: 34px;
+  border-radius: var(--radius-full);
+  background: var(--color-surface-2);
+  display: grid;
+  place-items: center;
+
+  svg {
+    width: 15px;
+    height: 15px;
+  }
+}
+
+.credit-invitation-copy {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+
+  strong {
+    font-size: 0.8rem;
+  }
+
+  span {
+    color: var(--color-text-muted);
+    font-size: 0.72rem;
+  }
+
+  small {
+    margin-top: 3px;
+    color: var(--color-text-subtle);
+    font-size: 0.66rem;
+    line-height: 1.4;
+  }
+}
+
+.credit-request-actions,
+.inline-request-actions,
+.new-claim-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+
+.credit-request-actions {
+  grid-column: 2;
+  margin-top: 4px;
+}
+
+.request-primary,
+.request-secondary {
+  min-height: 34px;
+  padding: 0 12px;
+  border-radius: var(--radius-full);
+  font: inherit;
+  font-size: 0.7rem;
+  font-weight: 650;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  cursor: pointer;
+
+  svg {
+    width: 13px;
+    height: 13px;
+  }
+}
+
+.request-primary {
+  border: 0;
+  background: var(--color-text);
+  color: var(--color-bg);
+}
+
+.request-secondary {
+  border: 1px solid var(--color-border-strong);
+  background: transparent;
+  color: var(--color-text-muted);
+}
+
+.context-text-action {
+  width: fit-content;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--color-text-muted);
+  font: inherit;
+  font-size: 0.7rem;
+  font-weight: 630;
+  text-decoration: underline;
+  text-decoration-color: var(--color-border-strong);
+  text-underline-offset: 3px;
+  cursor: pointer;
+
+  &.claim {
+    color: var(--color-text);
+  }
+}
+
+.credit-feedback {
+  margin-bottom: var(--space-3);
+  padding: 9px 11px;
+  border-radius: var(--radius-md);
+  font-size: 0.7rem;
+
+  &.success {
+    border: 1px solid var(--color-border);
+    background: var(--color-surface-1);
+    color: var(--color-text-muted);
+  }
+
+  &.error {
+    background: rgba(255, 133, 133, 0.09);
+    color: #ffabab;
+  }
+}
+
+.participation-claim {
+  margin-top: var(--space-5);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--color-border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+
+  > p {
+    margin: 0;
+    color: var(--color-text-subtle);
+    font-size: 0.68rem;
+    line-height: 1.45;
+  }
+
+  > div:not(.new-claim-heading) {
+    display: grid;
+    gap: 2px;
+
+    strong {
+      font-size: 0.75rem;
+    }
+
+    span {
+      color: var(--color-text-subtle);
+      font-size: 0.67rem;
+    }
+  }
+}
+
+.participation-trigger {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--color-text-subtle);
+  display: grid;
+  gap: 2px;
+  text-align: left;
+  font: inherit;
+  font-size: 0.67rem;
+  cursor: pointer;
+
+  span {
+    color: var(--color-text-muted);
+    font-size: 0.72rem;
+    font-weight: 630;
+  }
+
+  &:hover span {
+    color: var(--color-text);
+  }
+}
+
+.new-claim-form {
+  width: 100%;
+  padding: 14px;
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface-1);
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 12px;
+
+  label {
+    display: grid;
+    gap: 6px;
+
+    > span {
+      color: var(--color-text-muted);
+      font-size: 0.68rem;
+      font-weight: 600;
+    }
+  }
+
+  input,
+  select {
+    width: 100%;
+    min-height: 40px;
+    padding: 9px 10px;
+    border: 1px solid var(--color-border-strong);
+    border-radius: var(--radius-md);
+    outline: 0;
+    background: var(--color-surface-2);
+    color: var(--color-text);
+
+    &:focus {
+      border-color: var(--color-border-focus);
+    }
+  }
+}
+
+.new-claim-heading {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: var(--space-4);
+
+  > div {
+    display: grid;
+    gap: 2px;
+  }
+
+  strong {
+    font-size: 0.8rem;
+  }
+
+  span {
+    color: var(--color-text-subtle);
+    font-size: 0.66rem;
+  }
+
+  > button {
+    width: 30px;
+    height: 30px;
+    padding: 0;
+    border: 0;
+    border-radius: var(--radius-full);
+    background: transparent;
+    color: var(--color-text-subtle);
+    display: grid;
+    place-items: center;
+    cursor: pointer;
+
+    svg {
+      width: 14px;
+      height: 14px;
+    }
+  }
+}
+
+@media (min-width: 680px) {
+  .unlinked-credit-context {
+    margin-left: calc(50% + 8px);
+  }
+
+  .new-claim-form {
+    grid-template-columns: 1fr 0.75fr;
+
+    .new-claim-heading,
+    .wide {
+      grid-column: 1 / -1;
+    }
+  }
+}
+
+@media (max-width: 679px) {
+  .credits-heading {
+    display: grid;
+    gap: 3px;
+  }
+
+  .credit-row {
+    grid-template-columns: 0.75fr 1.25fr;
+  }
+
+  .participation-claim {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}

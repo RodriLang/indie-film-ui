@@ -36,6 +36,13 @@
       </a>
 
       @if (authStore.canCreate()) {
+      <a routerLink="/credit-requests" role="menuitem" (click)="close()">
+        <svg lucideLink></svg>
+        <span>Solicitudes de créditos</span>
+      </a>
+      }
+
+      @if (authStore.canCreate()) {
       <a routerLink="/publish" role="menuitem" (click)="close()">
         <svg lucidePlus></svg>
         <span>Studio</span>

@@ -19,6 +19,7 @@ import {
 } from '@lucide/angular';
 
 import { apiErrorMessage } from '../../../../core/api/http-error';
+import { AuthSessionService } from '../../../../core/auth/auth-session.service';
 import { AuthStore } from '../../../../core/auth/auth.store';
 import { Avatar } from '../../../../shared/ui/avatar/avatar';
 import { ProductionCard } from '../../../production/components/production-card/production-card';
@@ -61,6 +62,7 @@ export class CreatorPage implements OnInit {
   private readonly currentUserApi = inject(CurrentUserApi);
   private readonly productionApi = inject(ProductionApi);
   readonly authStore = inject(AuthStore);
+  private readonly authSession = inject(AuthSessionService);
   private readonly destroyRef = inject(DestroyRef);
   private readonly fb = inject(FormBuilder);
 
@@ -176,8 +178,9 @@ export class CreatorPage implements OnInit {
   }
 
   logout(): void {
-    this.authStore.clear();
-    void this.router.navigateByUrl('/explore');
+    void this.authSession.logout().finally(() => {
+      void this.router.navigateByUrl('/explore');
+    });
   }
 
   statusLabel(production: OwnProductionSummary): string {

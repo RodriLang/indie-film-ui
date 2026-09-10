@@ -4,6 +4,7 @@ import { Observable } from 'rxjs';
 
 import { API_URL } from '../../../core/config/api.config';
 import {
+  CreatorCreditSuggestion,
   CreatorParticipationPage,
   CreatorProductionPage,
   CreatorProfile,
@@ -15,6 +16,15 @@ export class CreatorApi {
 
   findByUsername(username: string): Observable<CreatorProfile> {
     return this.http.get<CreatorProfile>(`${API_URL}/creators/${username}`);
+  }
+
+  findCreditSuggestions(query: string): Observable<CreatorCreditSuggestion[]> {
+    const params = new HttpParams().set('q', query);
+
+    return this.http.get<CreatorCreditSuggestion[]>(
+      `${API_URL}/creators/credit-suggestions`,
+      { params },
+    );
   }
 
   findProductions(

@@ -1,6 +1,7 @@
 import { ChangeDetectionStrategy, Component, HostListener, inject, input, signal } from '@angular/core';
 import { Router, RouterLink } from '@angular/router';
 import {
+  LucideLink,
   LucideLogIn,
   LucideLogOut,
   LucidePlus,
@@ -11,6 +12,7 @@ import {
 
 import { Avatar } from '../../../shared/ui/avatar/avatar';
 import { userRoleLabel } from '../../auth/auth.models';
+import { AuthSessionService } from '../../auth/auth-session.service';
 import { AuthStore } from '../../auth/auth.store';
 
 @Component({
@@ -18,7 +20,8 @@ import { AuthStore } from '../../auth/auth.store';
   imports: [
     RouterLink,
     Avatar,
-    LucideLogIn,
+    LucideLink,
+  LucideLogIn,
     LucideLogOut,
     LucidePlus,
     LucideShieldCheck,
@@ -31,6 +34,7 @@ import { AuthStore } from '../../auth/auth.store';
 })
 export class AccountMenu {
   private readonly router = inject(Router);
+  private readonly authSession = inject(AuthSessionService);
 
   readonly authStore = inject(AuthStore);
   readonly open = signal(false);
@@ -51,8 +55,10 @@ export class AccountMenu {
 
   logout(): void {
     this.close();
-    this.authStore.clear();
-    void this.router.navigateByUrl('/explore');
+
+    void this.authSession.logout().finally(() => {
+      void this.router.navigateByUrl('/explore');
+    });
   }
 
   @HostListener('document:click')

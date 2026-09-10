@@ -1,0 +1,140 @@
+<section class="credit-requests-page page-container">
+  <header class="requests-header">
+    <span>Participaciones</span>
+    <h1>Solicitudes de créditos</h1>
+    <p>
+      Revisá invitaciones para vincular tu perfil y reclamos relacionados con
+      tus producciones.
+    </p>
+  </header>
+
+  <div class="request-tabs" role="tablist" aria-label="Tipo de solicitudes">
+    <button
+      type="button"
+      role="tab"
+      [class.active]="tab() === 'received'"
+      [attr.aria-selected]="tab() === 'received'"
+      (click)="selectTab('received')"
+    >
+      <svg lucideLink></svg>
+      Recibidas
+    </button>
+
+    <button
+      type="button"
+      role="tab"
+      [class.active]="tab() === 'sent'"
+      [attr.aria-selected]="tab() === 'sent'"
+      (click)="selectTab('sent')"
+    >
+      <svg lucideSend></svg>
+      Enviadas
+    </button>
+  </div>
+
+  <div class="request-filters" aria-label="Estado de solicitudes">
+    @for (filter of filters; track filter.label) {
+    <button
+      type="button"
+      [class.active]="status() === filter.value"
+      (click)="selectStatus(filter.value)"
+    >
+      {{ filter.label }}
+    </button>
+    }
+  </div>
+
+  @if (notice()) {
+  <div class="requests-feedback success">{{ notice() }}</div>
+  } @if (error()) {
+  <div class="requests-feedback error">{{ error() }}</div>
+  } @if (loading()) {
+  <div class="requests-state">Cargando solicitudes…</div>
+  } @else { @if (page(); as result) {
+  <div class="requests-list">
+    @for (request of result.content; track request.id) {
+    <article class="request-card">
+      <div class="request-main">
+        <div class="request-topline">
+          <span class="request-status" [attr.data-status]="request.status">
+            {{ statusLabel(request.status) }}
+          </span>
+
+          <small> {{ formatDate(request.createdAt) }} </small>
+        </div>
+
+        <strong> {{ requestTitle(request) }} </strong>
+
+        <a [routerLink]="['/production', request.production.slug]">
+          {{ request.production.title }}
+        </a>
+
+        <span class="request-credit"> {{ creditDescription(request) }} </span>
+      </div>
+
+      @if (request.status === 'PENDING') {
+      <div class="request-actions">
+        @if (tab() === 'received') {
+        <button
+          type="button"
+          class="primary-action"
+          [disabled]="!!busyRequestId()"
+          (click)="accept(request)"
+        >
+          <svg lucideCheck></svg>
+          Aceptar
+        </button>
+
+        <button
+          type="button"
+          class="secondary-action"
+          [disabled]="!!busyRequestId()"
+          (click)="reject(request)"
+        >
+          <svg lucideX></svg>
+          Rechazar
+        </button>
+        } @else {
+        <button
+          type="button"
+          class="secondary-action"
+          [disabled]="!!busyRequestId()"
+          (click)="cancel(request)"
+        >
+          <svg lucideX></svg>
+          Cancelar solicitud
+        </button>
+        }
+      </div>
+      }
+    </article>
+    } @empty {
+    <div class="requests-state empty">
+      <svg lucideClock3></svg>
+
+      <strong> No hay solicitudes en este estado </strong>
+
+      <span>
+        {{ tab() === 'received' ? 'Las invitaciones o reclamos que recibas van a
+        aparecer acá.' : 'Las solicitudes que envíes van a aparecer acá.' }}
+      </span>
+    </div>
+    }
+  </div>
+
+  @if (result.totalPages > 1) {
+  <nav class="requests-pagination" aria-label="Paginación">
+    <button type="button" [disabled]="result.first" (click)="previousPage()">
+      <svg lucideChevronLeft></svg>
+      Anterior
+    </button>
+
+    <span> Página {{ result.page + 1 }} de {{ result.totalPages }} </span>
+
+    <button type="button" [disabled]="result.last" (click)="nextPage()">
+      Siguiente
+      <svg lucideChevronRight></svg>
+    </button>
+  </nav>
+  } } }
+</section>

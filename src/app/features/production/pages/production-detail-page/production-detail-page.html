@@ -131,23 +131,226 @@
           <h2>Sobre la obra</h2>
           <p>{{ item.description }}</p>
         </section>
-        } @if (item.credits.length > 0) {
+        } @if (item.credits.length > 0 || !isOwnProduction()) {
         <section class="detail-section credits">
-          <h2>Créditos</h2>
+          <div class="credits-heading">
+            <h2>Créditos</h2>
+            @if (item.credits.length > 0) {
+            <span>Los nombres con vínculo llevan a un perfil de creador.</span>
+            }
+          </div>
+
+          @if (pendingInvitation(); as invitation) {
+          <div class="credit-invitation-card">
+            <div class="credit-invitation-icon">
+              <svg lucideLink></svg>
+            </div>
+            <div class="credit-invitation-copy">
+              <strong>Te invitaron a vincular una participación</strong>
+              <span>
+                {{ invitation.credit?.roleDetail || (invitation.credit ? creditLabel(invitation.credit.role) : '') }}
+                · {{ invitation.credit?.personName }}
+              </span>
+              <small>
+                Si aceptás, este crédito quedará asociado a tu perfil de creador.
+              </small>
+            </div>
+            <div class="credit-request-actions">
+              <button
+                type="button"
+                class="request-primary"
+                [disabled]="!!creditActionBusy()"
+                (click)="acceptCreditRequest(invitation)"
+              >
+                <svg lucideCheck></svg>
+                Aceptar
+              </button>
+              <button
+                type="button"
+                class="request-secondary"
+                [disabled]="!!creditActionBusy()"
+                (click)="rejectCreditRequest(invitation)"
+              >
+                <svg lucideX></svg>
+                Rechazar
+              </button>
+            </div>
+          </div>
+          }
+
+          @if (creditNotice()) {
+          <div class="credit-feedback success">{{ creditNotice() }}</div>
+          }
+          @if (creditError()) {
+          <div class="credit-feedback error">{{ creditError() }}</div>
+          }
+
+          @if (item.credits.length > 0) {
           <div class="credit-list">
             @for (credit of item.credits; track credit.id) {
-            <div class="credit-row">
-              <span>{{ credit.roleDetail || creditLabel(credit.role) }}</span>
-              @if (credit.user) {
-              <a [routerLink]="['/creator', credit.user.username]"
-                >{{ credit.user.displayName }}</a
-              >
-              } @else {
-              <strong>{{ credit.personName }}</strong>
+            <div class="credit-entry">
+              <div class="credit-row" [class.expanded]="expandedCreditId() === credit.id">
+                <span>{{ credit.roleDetail || creditLabel(credit.role) }}</span>
+
+                @if (credit.user) {
+                <a
+                  class="credit-person linked"
+                  [routerLink]="['/creator', credit.user.username]"
+                  [attr.aria-label]="'Ver perfil de ' + credit.personName"
+                >
+                  <svg lucideLink></svg>
+                  <strong>{{ credit.personName }}</strong>
+                </a>
+                } @else {
+                <button
+                  type="button"
+                  class="credit-person unlinked"
+                  [attr.aria-expanded]="expandedCreditId() === credit.id"
+                  (click)="toggleCreditContext(credit)"
+                >
+                  <svg lucideUnlink></svg>
+                  <strong>{{ credit.personName }}</strong>
+                </button>
+                }
+              </div>
+
+              @if (!credit.user && expandedCreditId() === credit.id) {
+              <div class="unlinked-credit-context">
+                <p>{{ explainUnlinkedCredit(credit) }}</p>
+
+                @if (pendingRequestForCredit(credit.id); as pendingRequest) {
+                  @if (
+                    pendingRequest.type === 'OWNER_INVITATION' &&
+                    pendingRequest.requestedUser.id === authStore.user()?.id
+                  ) {
+                  <div class="inline-request-actions">
+                    <button
+                      type="button"
+                      class="request-primary"
+                      [disabled]="!!creditActionBusy()"
+                      (click)="acceptCreditRequest(pendingRequest)"
+                    >
+                      Aceptar vinculación
+                    </button>
+                    <button
+                      type="button"
+                      class="request-secondary"
+                      [disabled]="!!creditActionBusy()"
+                      (click)="rejectCreditRequest(pendingRequest)"
+                    >
+                      Rechazar
+                    </button>
+                  </div>
+                  } @else if (
+                    pendingRequest.type === 'USER_CLAIM' &&
+                    pendingRequest.requestedBy.id === authStore.user()?.id
+                  ) {
+                  <button
+                    type="button"
+                    class="context-text-action"
+                    [disabled]="!!creditActionBusy()"
+                    (click)="cancelCreditRequest(pendingRequest)"
+                  >
+                    Cancelar reclamo
+                  </button>
+                  }
+                } @else if (!pendingInvitation() && !isOwnProduction()) {
+                  @if (!authStore.authenticated()) {
+                  <button type="button" class="context-text-action" (click)="goToAuth()">
+                    Iniciar sesión para reclamarlo
+                  </button>
+                  } @else if (canClaimCredits()) {
+                  <button
+                    type="button"
+                    class="context-text-action claim"
+                    [disabled]="!!creditActionBusy()"
+                    (click)="claimExistingCredit(credit)"
+                  >
+                    Soy yo · Reclamar este crédito
+                  </button>
+                  }
+                }
+              </div>
               }
             </div>
             }
           </div>
+          }
+
+          @if (!isOwnProduction()) {
+          <div class="participation-claim">
+            @if (pendingInvitation()) {
+            <p>
+              Ya tenés una invitación pendiente en esta producción. Resolvela antes de enviar otro reclamo.
+            </p>
+            } @else if (pendingNewClaim(); as newClaim) {
+            <div>
+              <strong>Tu solicitud está pendiente</strong>
+              <span>
+                {{ newClaim.proposedCredit?.roleDetail || (newClaim.proposedCredit ? creditLabel(newClaim.proposedCredit.role) : '') }}
+                · {{ newClaim.proposedCredit?.personName }}
+              </span>
+            </div>
+            <button
+              type="button"
+              class="context-text-action"
+              [disabled]="!!creditActionBusy()"
+              (click)="cancelCreditRequest(newClaim)"
+            >
+              Cancelar solicitud
+            </button>
+            } @else if (!newClaimOpen()) {
+            <button type="button" class="participation-trigger" (click)="openNewClaim()">
+              ¿Participaste en esta producción y no figurás en los créditos?
+              <span>Solicitar agregar mi participación</span>
+            </button>
+            } @else {
+            <form class="new-claim-form" [formGroup]="newClaimForm" (ngSubmit)="submitNewClaim()">
+              <div class="new-claim-heading">
+                <div>
+                  <strong>Solicitar una participación</strong>
+                  <span>El responsable de la producción deberá aprobarla.</span>
+                </div>
+                <button type="button" aria-label="Cerrar" (click)="closeNewClaim()">
+                  <svg lucideX></svg>
+                </button>
+              </div>
+
+              <label>
+                <span>Nombre acreditado</span>
+                <input type="text" formControlName="personName" />
+              </label>
+
+              <label>
+                <span>Rol</span>
+                <select formControlName="role">
+                  @for (role of creditRoles; track role.value) {
+                  <option [value]="role.value">{{ role.label }}</option>
+                  }
+                </select>
+              </label>
+
+              <label class="wide">
+                <span>Detalle</span>
+                <input type="text" formControlName="roleDetail" placeholder="Ej. Martín, montaje, cámara B…" />
+              </label>
+
+              <div class="new-claim-actions wide">
+                <button
+                  class="request-primary"
+                  type="submit"
+                  [disabled]="newClaimForm.invalid || !!creditActionBusy()"
+                >
+                  Enviar solicitud
+                </button>
+                <button class="request-secondary" type="button" (click)="closeNewClaim()">
+                  Cancelar
+                </button>
+              </div>
+            </form>
+            }
+          </div>
+          }
         </section>
         }
       </main>

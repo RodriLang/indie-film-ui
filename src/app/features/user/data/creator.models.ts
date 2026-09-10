@@ -17,6 +17,15 @@ export type CreatorSpecialty =
   | 'ANIMATION'
   | 'ACTING';
 
+
+export interface CreatorCreditSuggestion {
+  id: number;
+  username: string;
+  displayName: string;
+  avatarUrl?: string | null;
+  specialties: CreatorSpecialty[];
+}
+
 export interface CreatorProfile {
   id: number;
   username: string;
