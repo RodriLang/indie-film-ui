@@ -14,53 +14,7 @@ import {
 } from '@angular/core';
 
 import { ProductionVideoPlayback } from '../../data/production.models';
-
-interface YoutubePlayer {
-  playVideo(): void;
-  pauseVideo(): void;
-  stopVideo(): void;
-  mute(): void;
-  unMute(): void;
-  seekTo(seconds: number, allowSeekAhead: boolean): void;
-  getCurrentTime(): number;
-  getDuration(): number;
-  destroy(): void;
-}
-
-interface YoutubePlayerEvent {
-  target: YoutubePlayer;
-  data: number;
-}
-
-interface YoutubeApi {
-  Player: new (
-    element: HTMLElement,
-    options: {
-      width: string;
-      height: string;
-      videoId: string;
-      host?: string;
-      playerVars: Record<string, string | number>;
-      events: {
-        onReady: (event: YoutubePlayerEvent) => void;
-        onStateChange: (event: YoutubePlayerEvent) => void;
-        onError: () => void;
-        onAutoplayBlocked?: () => void;
-      };
-    },
-  ) => YoutubePlayer;
-
-  PlayerState: {
-    ENDED: number;
-    PLAYING: number;
-    PAUSED: number;
-  };
-}
-
-type YoutubeWindow = Window & {
-  YT?: YoutubeApi;
-  onYouTubeIframeAPIReady?: () => void;
-};
+import { loadYoutubeApi, YoutubePlayer } from '../../../../shared/youtube/youtube-iframe-api';
 
 export interface VideoPlaybackProgress {
   positionSeconds: number;
@@ -71,65 +25,6 @@ export interface VideoPlaybackProgress {
 export interface VideoPlaybackTime {
   positionSeconds: number;
   durationSeconds: number;
-}
-
-let youtubeApiPromise: Promise<YoutubeApi> | null = null;
-
-function loadYoutubeApi(): Promise<YoutubeApi> {
-  const youtubeWindow = window as YoutubeWindow;
-
-  if (youtubeWindow.YT?.Player) {
-    return Promise.resolve(youtubeWindow.YT);
-  }
-
-  if (youtubeApiPromise) {
-    return youtubeApiPromise;
-  }
-
-  youtubeApiPromise = new Promise<YoutubeApi>((resolve, reject) => {
-    const previousReady = youtubeWindow.onYouTubeIframeAPIReady;
-
-    youtubeWindow.onYouTubeIframeAPIReady = () => {
-      previousReady?.();
-
-      if (youtubeWindow.YT) {
-        resolve(youtubeWindow.YT);
-        return;
-      }
-
-      reject(new Error('YouTube API unavailable'));
-    };
-
-    const existing = document.querySelector<HTMLScriptElement>(
-      'script[src="https://www.youtube.com/iframe_api"]',
-    );
-
-    if (existing) {
-      existing.addEventListener(
-        'error',
-        () => reject(new Error('Could not load YouTube API')),
-        { once: true },
-      );
-
-      return;
-    }
-
-    const script = document.createElement('script');
-
-    script.src = 'https://www.youtube.com/iframe_api';
-
-    script.async = true;
-
-    script.onerror = () => {
-      youtubeApiPromise = null;
-
-      reject(new Error('Could not load YouTube API'));
-    };
-
-    document.head.appendChild(script);
-  });
-
-  return youtubeApiPromise;
 }
 
 @Component({

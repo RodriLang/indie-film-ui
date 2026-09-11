@@ -14,102 +14,10 @@ import {
 } from '@angular/core';
 
 import { ProductionVideoPlayback } from '../../../production/data/production.models';
-
-interface YoutubePlayer {
-  mute(): void;
-  unMute(): void;
-  playVideo(): void;
-  destroy(): void;
-}
-
-interface YoutubePlayerEvent {
-  target: YoutubePlayer;
-  data: number;
-}
-
-interface YoutubeApi {
-  Player: new (
-    element: HTMLElement,
-    options: {
-      width: string;
-      height: string;
-      videoId: string;
-      host?: string;
-      playerVars: Record<string, string | number>;
-      events: {
-        onReady: (event: YoutubePlayerEvent) => void;
-        onStateChange: (event: YoutubePlayerEvent) => void;
-        onError: () => void;
-        onAutoplayBlocked?: () => void;
-      };
-    },
-  ) => YoutubePlayer;
-
-  PlayerState: {
-    ENDED: number;
-  };
-}
-
-type YoutubeWindow = Window & {
-  YT?: YoutubeApi;
-  onYouTubeIframeAPIReady?: () => void;
-};
-
-let youtubeApiPromise: Promise<YoutubeApi> | null = null;
-
-function loadYoutubeApi(): Promise<YoutubeApi> {
-  const youtubeWindow = window as YoutubeWindow;
-
-  if (youtubeWindow.YT?.Player) {
-    return Promise.resolve(youtubeWindow.YT);
-  }
-
-  if (youtubeApiPromise) {
-    return youtubeApiPromise;
-  }
-
-  youtubeApiPromise = new Promise<YoutubeApi>((resolve, reject) => {
-    const previousReady = youtubeWindow.onYouTubeIframeAPIReady;
-
-    youtubeWindow.onYouTubeIframeAPIReady = () => {
-      previousReady?.();
-
-      if (youtubeWindow.YT) {
-        resolve(youtubeWindow.YT);
-        return;
-      }
-
-      reject(new Error('YouTube API unavailable'));
-    };
-
-    const existing = document.querySelector<HTMLScriptElement>(
-      'script[src="https://www.youtube.com/iframe_api"]',
-    );
-
-    if (existing) {
-      existing.addEventListener(
-        'error',
-        () => reject(new Error('Could not load YouTube API')),
-        { once: true },
-      );
-
-      return;
-    }
-
-    const script = document.createElement('script');
-    script.src = 'https://www.youtube.com/iframe_api';
-    script.async = true;
-
-    script.onerror = () => {
-      youtubeApiPromise = null;
-      reject(new Error('Could not load YouTube API'));
-    };
-
-    document.head.appendChild(script);
-  });
-
-  return youtubeApiPromise;
-}
+import {
+  loadYoutubeApi,
+  YoutubePlayer,
+} from '../../../../shared/youtube/youtube-iframe-api';
 
 @Component({
   selector: 'app-autoplay-trailer-player',
@@ -193,6 +101,9 @@ export class AutoplayTrailerPlayer implements AfterViewInit, OnDestroy {
           onReady: (event) => {
             this.playerReady = true;
 
+            this.applyFit(event.target);
+            this.disableCaptions(event.target);
+
             if (this.muted()) {
               event.target.mute();
             } else {
@@ -202,6 +113,8 @@ export class AutoplayTrailerPlayer implements AfterViewInit, OnDestroy {
             event.target.playVideo();
           },
           onStateChange: (event) => {
+            this.disableCaptions(event.target);
+
             if (event.data === youtube.PlayerState.ENDED) {
               this.ended.emit();
             }
@@ -233,5 +146,31 @@ export class AutoplayTrailerPlayer implements AfterViewInit, OnDestroy {
 
     this.player?.destroy();
     this.player = null;
+  }
+
+  private applyFit(player: YoutubePlayer): void {
+    if (this.fit() !== 'cover') {
+      return;
+    }
+
+    const iframe = player.getIframe();
+
+    iframe.style.width = '100%';
+    iframe.style.height = '133.333%';
+
+    iframe.style.position = 'absolute';
+    iframe.style.top = '50%';
+    iframe.style.left = '50%';
+
+    iframe.style.transform = 'translate(-50%, -50%)';
+  }
+
+  private disableCaptions(player: YoutubePlayer): void {
+    try {
+      player.unloadModule?.('captions');
+      player.unloadModule?.('cc');
+    } catch {
+      // YouTube no expone una API pública para forzar captions off.
+    }
   }
 }
