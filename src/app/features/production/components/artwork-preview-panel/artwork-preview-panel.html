@@ -1,0 +1,244 @@
+<section class="artwork-preview-panel">
+  <div class="preview-heading">
+    <div>
+      <strong>Previsualización</strong>
+
+      <p>
+        Definí qué parte de la portada debe mantenerse visible y comprobá cómo
+        se adapta a los distintos lugares de la aplicación.
+      </p>
+    </div>
+
+    <span class="live-badge">Vista en vivo</span>
+  </div>
+
+  <!-- =====================================================
+       PORTADA Y FOCO
+       ===================================================== -->
+
+  <section class="focus-section">
+    <div class="subsection-heading">
+      <div>
+        <strong>Portada y foco</strong>
+
+        <p>
+          Elegí la zona importante de la imagen. El foco se utiliza cuando la
+          portada necesita recortarse para adaptarse a otro formato.
+        </p>
+      </div>
+
+      @if (poster()) {
+      <div class="focus-values">
+        <span>X {{ focalXPercent() }}%</span>
+        <span>Y {{ focalYPercent() }}%</span>
+      </div>
+      }
+    </div>
+
+    @if (poster()) {
+    <div class="focus-editor-layout">
+      <div
+        #focusSource
+        class="focus-source"
+        [class.editable]="editable()"
+        [attr.aria-disabled]="!editable()"
+        (pointerdown)="startFocalEdit($event, focusSource)"
+        (pointermove)="moveFocalEdit($event, focusSource)"
+        (pointerup)="stopFocalEdit($event)"
+        (pointercancel)="stopFocalEdit($event)"
+        (lostpointercapture)="cancelFocalEdit()"
+      >
+        <img
+          [src]="poster()"
+          alt="Portada original para ajustar el foco"
+          draggable="false"
+        />
+
+        <span
+          class="focus-marker"
+          [style.left.%]="focalXPercent()"
+          [style.top.%]="focalYPercent()"
+        ></span>
+      </div>
+
+      <div class="focus-controls">
+        <label>
+          <span>
+            Horizontal
+            <strong>{{ focalXPercent() }}%</strong>
+          </span>
+
+          <input
+            type="range"
+            min="0"
+            max="1"
+            step="0.01"
+            [value]="normalizedFocalX()"
+            [disabled]="!editable()"
+            (input)="changeFocalX($event)"
+          />
+        </label>
+
+        <label>
+          <span>
+            Vertical
+            <strong>{{ focalYPercent() }}%</strong>
+          </span>
+
+          <input
+            type="range"
+            min="0"
+            max="1"
+            step="0.01"
+            [value]="normalizedFocalY()"
+            [disabled]="!editable()"
+            (input)="changeFocalY($event)"
+          />
+        </label>
+
+        @if (editable()) {
+        <small class="focus-help">
+          También podés tocar o arrastrar directamente sobre la imagen.
+        </small>
+        }
+      </div>
+    </div>
+    } @else {
+    <div class="preview-empty">
+      Agregá una portada para poder definir su punto de foco.
+    </div>
+    }
+  </section>
+
+  <!-- =====================================================
+       RECORTES DE PORTADA
+       ===================================================== -->
+
+  <section class="crop-section">
+    <div class="subsection-heading">
+      <div>
+        <strong>Cómo se recorta en la app</strong>
+
+        <p>
+          Estas vistas usan la misma portada y el punto de foco que elegiste
+          arriba. Sirven para comprobar que el contenido importante no quede
+          fuera del encuadre.
+        </p>
+      </div>
+    </div>
+
+    <div class="crop-previews">
+      <article class="crop-preview-item">
+        <div class="crop-frame crop-frame-vertical">
+          @if (poster()) {
+          <img
+            [src]="poster()"
+            [alt]="displayTitle()"
+            [style.object-position]="posterObjectPosition()"
+          />
+          } @else {
+          <div class="crop-placeholder">Sin portada</div>
+          }
+        </div>
+
+        <div class="crop-copy">
+          <strong>Formato vertical</strong>
+          <span>9:16</span>
+
+          <small> Cards verticales y navegación de contenido. </small>
+        </div>
+      </article>
+
+      <article class="crop-preview-item featured">
+        <div class="crop-frame crop-frame-featured">
+          @if (poster()) {
+          <img
+            [src]="poster()"
+            [alt]="displayTitle()"
+            [style.object-position]="posterObjectPosition()"
+          />
+          } @else {
+          <div class="crop-placeholder">Sin portada</div>
+          }
+        </div>
+
+        <div class="crop-copy">
+          <strong>Card destacada</strong>
+          <span>3:4</span>
+
+          <small> Contenido destacado y colecciones. </small>
+        </div>
+      </article>
+    </div>
+  </section>
+
+  <!-- =====================================================
+       STAGE
+       ===================================================== -->
+
+  <section class="stage-section">
+    <div class="subsection-heading">
+      <div>
+        <strong>Vista Stage</strong>
+
+        <p>
+          Así puede presentarse la producción como contenido destacado. Si hay
+          un trailer disponible se reproduce automáticamente; si no, se utiliza
+          la portada.
+        </p>
+      </div>
+    </div>
+
+    <div class="stage-preview-wrapper">
+      <div class="stage-frame">
+        @if (stageFallbackUrl(); as fallback) {
+        <img
+          class="stage-fallback"
+          [src]="fallback"
+          [alt]="displayTitle()"
+          [style.object-position]="
+              fallback === poster()
+                ? posterObjectPosition()
+                : '50% 50%'
+            "
+        />
+        } @else {
+        <div class="stage-placeholder">Sin portada</div>
+        } @if (trailerPlayback(); as playback) {
+        <app-autoplay-trailer-player
+          [playback]="playback"
+          [muted]="true"
+          fit="cover"
+          (unavailable)="trailerPlayerUnavailable.emit()"
+        />
+        }
+
+        <div class="stage-vignette"></div>
+
+        @if (titleArt(); as art) {
+        <img
+          class="stage-title-art"
+          [src]="art"
+          [alt]="displayTitle()"
+          [attr.data-position]="titleArtPosition()"
+        />
+        } @else {
+        <div class="stage-title">{{ displayTitle() }}</div>
+        } @if (trailerLoading()) {
+        <span class="stage-state"> Cargando trailer… </span>
+        } @else if (trailerFailed()) {
+        <span class="stage-state">
+          Trailer no disponible · mostrando portada
+        </span>
+        } @else if (!hasTrailer()) {
+        <span class="stage-state"> Sin trailer · mostrando portada </span>
+        }
+      </div>
+
+      <div class="stage-meta">
+        <span>3:4</span>
+        <small>Trailer autoplay + título gráfico</small>
+      </div>
+    </div>
+  </section>
+</section>

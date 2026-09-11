@@ -1,124 +1,206 @@
 <section class="creator-page fade-enter">
   <div class="page-container">
     @if (loading()) {
-      <div class="profile-skeleton"></div>
-    } @else if (profile(); as creator) {
-      <header class="profile-header">
-        <app-avatar [name]="creator.displayName" [imageUrl]="creator.avatarUrl || null" [size]="92" />
-        <div class="profile-copy">
-          <h1>{{ creator.displayName }}</h1>
-          <span>@{{ creator.username }}</span>
-          @if (creator.bio) { <p>{{ creator.bio }}</p> }
-          @if (creator.specialties.length > 0) {
-            <div class="specialties">
-              @for (specialty of creator.specialties; track specialty) {
-                <span>{{ specialtyLabel(specialty) }}</span>
-              }
-            </div>
+    <div class="profile-skeleton"></div>
+    } @else if (displayProfile(); as creator) {
+    <header class="profile-header">
+      <app-avatar
+        [name]="creator.displayName"
+        [imageUrl]="creator.avatarUrl || null"
+        [size]="92"
+      />
+      <div class="profile-copy">
+        <h1>{{ creator.displayName }}</h1>
+        <span>@{{ creator.username }}</span>
+        @if (creator.bio) {
+        <p>{{ creator.bio }}</p>
+        } @if (creator.specialties.length > 0) {
+        <div class="specialties">
+          @for (specialty of creator.specialties; track specialty) {
+          <span>{{ specialtyLabel(specialty) }}</span>
           }
         </div>
-
-        @if (own()) {
-          <div class="profile-actions">
-            @if (authStore.canModerate()) {
-              <a routerLink="/moderation"><svg lucideShieldCheck></svg> Moderación</a>
-            }
-            @if (authStore.canAdministerUsers()) {
-              <a routerLink="/admin/users"><svg lucideUsers></svg> Usuarios</a>
-            }
-            <button type="button" (click)="toggleEdit()"><svg lucideEdit3></svg> Editar</button>
-            <button class="icon-only" type="button" aria-label="Cerrar sesión" (click)="logout()"><svg lucideLogOut></svg></button>
-          </div>
         }
-      </header>
+      </div>
 
-      @if (error()) { <p class="page-error">{{ error() }}</p> }
-
-      @if (editing()) {
-        <section class="edit-panel">
-          <form [formGroup]="profileForm" (ngSubmit)="saveProfile()">
-            <label>
-              <span>Nombre</span>
-              <input type="text" formControlName="displayName" />
-            </label>
-            <label>
-              <span>Bio</span>
-              <textarea rows="5" formControlName="bio"></textarea>
-            </label>
-            <div class="specialty-editor">
-              <span>Especialidades</span>
-              <div>
-                @for (option of specialtyOptions; track option.value) {
-                  <button type="button" [class.active]="specialties().has(option.value)" (click)="toggleSpecialty(option.value)">{{ option.label }}</button>
-                }
-              </div>
-            </div>
-            <div class="edit-actions">
-              <button type="button" class="secondary" (click)="toggleEdit()">Cancelar</button>
-              <button type="submit" class="primary" [disabled]="saving()">{{ saving() ? 'Guardando…' : 'Guardar' }}</button>
-            </div>
-          </form>
-        </section>
+      @if (own()) {
+      <div class="profile-actions">
+        @if (authStore.canModerate()) {
+        <a routerLink="/moderation"><svg lucideShieldCheck></svg> Moderación</a>
+        } @if (authStore.canAdministerUsers()) {
+        <a routerLink="/admin/users"><svg lucideUsers></svg> Usuarios</a>
+        }
+        <button type="button" (click)="toggleEdit()">
+          <svg lucideEdit3></svg> Editar
+        </button>
+        <button
+          class="icon-only"
+          type="button"
+          aria-label="Cerrar sesión"
+          (click)="logout()"
+        >
+          <svg lucideLogOut></svg>
+        </button>
+      </div>
       }
+    </header>
 
-      @if (own() && authStore.canCreate()) {
-        <section class="profile-section own-work">
-          <div class="section-heading">
-            <h2>Mis producciones</h2>
-            <a routerLink="/publish"><svg lucidePlus></svg> Nueva</a>
-          </div>
+    @if (error()) {
+    <p class="page-error">{{ error() }}</p>
+    } @if (editing()) {
+    <section class="edit-panel">
+      <form [formGroup]="profileForm" (ngSubmit)="saveProfile()">
+        <label>
+          <span>Nombre</span>
+          <input type="text" formControlName="displayName" />
+        </label>
+        <label>
+          <span>Bio</span>
+          <textarea rows="5" formControlName="bio"></textarea>
+        </label>
+        @if (authStore.user()?.role === 'CREATOR') {
+        <div class="specialty-editor">
+          <span>Especialidades</span>
 
-          @if (ownProductions().length === 0) {
-            <p class="empty-copy">Todavía no creaste ninguna producción.</p>
-          } @else {
-            <div class="own-list">
-              @for (production of ownProductions(); track production.id) {
-                <a [routerLink]="['/studio', production.slug]">
-                  <div class="mini-artwork">
-                    @if (production.posterUrl) { <img [src]="production.posterUrl" [alt]="production.title" /> }
-                  </div>
-                  <div>
-                    <strong>{{ production.title }}</strong>
-                    <span>{{ statusLabel(production) }}</span>
-                  </div>
-                  <small>Editar</small>
-                </a>
-              }
-            </div>
-          }
-        </section>
-      }
-
-      @if (productions().length > 0) {
-        <section class="profile-section">
-          <h2>{{ own() ? 'Publicadas' : 'Producciones' }}</h2>
-          <div class="work-grid">
-            @for (production of productions(); track production.id) {
-              <app-production-card [production]="production" variant="grid" />
+          <div>
+            @for (option of specialtyOptions; track option.value) {
+            <button
+              type="button"
+              [class.active]="specialties().has(option.value)"
+              (click)="toggleSpecialty(option.value)"
+            >
+              {{ option.label }}
+            </button>
             }
           </div>
-        </section>
-      }
+        </div>
+        }
+        <div class="edit-actions">
+          <button type="button" class="secondary" (click)="toggleEdit()">
+            Cancelar
+          </button>
+          <button type="submit" class="primary" [disabled]="saving()">
+            {{ saving() ? 'Guardando…' : 'Guardar' }}
+          </button>
+        </div>
+      </form>
+    </section>
+    } @if (own() && authStore.user()?.role === 'USER') { @if
+    (creatorEligibility() === 'ELIGIBLE') {
+    <section class="creator-upgrade-card">
+      <div class="creator-upgrade-copy">
+        <span class="creator-upgrade-eyebrow">Publicá en Indie Film</span>
 
-      @if (participations().length > 0) {
-        <section class="profile-section">
-          <h2>Participaciones</h2>
-          <div class="work-grid">
-            @for (participation of participations(); track participation.production.id) {
-              <div class="participation-card">
-                <app-production-card [production]="participation.production" variant="grid" />
-                <p>
-                  @for (credit of participation.credits; track credit.role; let last = $last) {
-                    {{ credit.roleDetail || roleLabel(credit.role) }}{{ last ? '' : ' · ' }}
-                  }
-                </p>
-              </div>
-            }
+        <h2>Convertite en creador</h2>
+
+        <p>
+          Activá tu perfil de creador para publicar tus propias producciones
+          independientes y administrarlas desde Studio.
+        </p>
+
+        <div class="creator-benefits">
+          <span>Publicá cortos, películas y series</span>
+          <span>Subí trailers, videos y episodios</span>
+          <span>Administrá tus producciones desde Studio</span>
+          <span>Mostrá tus trabajos y participaciones en tu perfil</span>
+        </div>
+      </div>
+
+      <!-- acá queda tu confirmación y botón actual -->
+    </section>
+    } @if (creatorEligibility() === 'UNDERAGE') {
+    <section class="creator-upgrade-card unavailable">
+      <div class="creator-upgrade-copy">
+        <span class="creator-upgrade-eyebrow">Perfil de creador</span>
+
+        <h2>Disponible a partir de los 18 años</h2>
+
+        <p>
+          Podés seguir usando Indie Film, descubrir producciones y participar en
+          la comunidad. Las herramientas para publicar y administrar
+          producciones propias se habilitan a partir de los 18 años.
+        </p>
+      </div>
+    </section>
+    } @if (creatorEligibility() === 'MISSING_BIRTH_DATE') {
+    <section class="creator-upgrade-card unavailable">
+      <div class="creator-upgrade-copy">
+        <span class="creator-upgrade-eyebrow">Perfil de creador</span>
+
+        <h2>Completá tu fecha de nacimiento</h2>
+
+        <p>
+          Necesitamos tu fecha de nacimiento para verificar que cumplís con la
+          edad mínima requerida para publicar contenido.
+        </p>
+      </div>
+
+      <button
+        class="creator-upgrade-button secondary-upgrade"
+        type="button"
+        (click)="toggleEdit()"
+      >
+        Completar perfil
+      </button>
+    </section>
+    } } @if (own() && authStore.canCreate()) {
+    <section class="profile-section own-work">
+      <div class="section-heading">
+        <h2>Mis producciones</h2>
+        <a routerLink="/publish"><svg lucidePlus></svg> Nueva</a>
+      </div>
+
+      @if (ownProductions().length === 0) {
+      <p class="empty-copy">Todavía no creaste ninguna producción.</p>
+      } @else {
+      <div class="own-list">
+        @for (production of ownProductions(); track production.id) {
+        <a [routerLink]="['/studio', production.slug]">
+          <div class="mini-artwork">
+            @if (production.posterUrl) {
+            <img [src]="production.posterUrl" [alt]="production.title" /> }
           </div>
-        </section>
+          <div>
+            <strong>{{ production.title }}</strong>
+            <span>{{ statusLabel(production) }}</span>
+          </div>
+          <small>Editar</small>
+        </a>
+        }
+      </div>
       }
-    } @else if (error()) {
-      <div class="profile-skeleton"><strong>{{ error() }}</strong></div>
+    </section>
+    } @if (productions().length > 0) {
+    <section class="profile-section">
+      <h2>{{ own() ? 'Publicadas' : 'Producciones' }}</h2>
+      <div class="work-grid">
+        @for (production of productions(); track production.id) {
+        <app-production-card [production]="production" variant="grid" />
+        }
+      </div>
+    </section>
+    } @if (participations().length > 0) {
+    <section class="profile-section">
+      <h2>Participaciones</h2>
+      <div class="work-grid">
+        @for (participation of participations(); track
+        participation.production.id) {
+        <div class="participation-card">
+          <app-production-card
+            [production]="participation.production"
+            variant="grid"
+          />
+          <p>
+            @for (credit of participation.credits; track credit.role; let last =
+            $last) { {{ credit.roleDetail || roleLabel(credit.role) }}{{ last ?
+            '' : ' · ' }} }
+          </p>
+        </div>
+        }
+      </div>
+    </section>
+    } } @else if (error()) {
+    <div class="profile-skeleton"><strong>{{ error() }}</strong></div>
     }
   </div>
 </section>

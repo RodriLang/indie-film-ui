@@ -66,7 +66,6 @@ export interface UpdateMyProfileRequest {
   displayName: string;
   bio: string | null;
   specialties: CreatorSpecialty[];
-  birthDate: string;
 }
 
 export const USER_ROLE_OPTIONS: readonly { value: UserRole; label: string }[] = [

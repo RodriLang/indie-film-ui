@@ -9,15 +9,13 @@ import {
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
-import { finalize, switchMap } from 'rxjs';
+import { finalize, of, switchMap } from 'rxjs';
 import {
   LucideCheck,
-  LucideEdit3,
   LucideLink,
   LucidePlus,
   LucideSquarePen,
   LucideTrash,
-  LucideTrash2,
   LucideUnlink,
   LucideUserRound,
   LucideX,
@@ -47,8 +45,10 @@ import {
   ProductionType,
   ProductionVideo,
   ProductionVideoKind,
+  ProductionVideoPlayback,
   TitleArtPosition,
 } from '../../data/production.models';
+import { ArtworkPreviewPanel } from '../../components/artwork-preview-panel/artwork-preview-panel';
 
 type DraftExternalCredit = {
   id: number;
@@ -66,6 +66,7 @@ type DraftExternalCredit = {
   imports: [
     ReactiveFormsModule,
     RouterLink,
+    ArtworkPreviewPanel,
     LucideCheck,
     LucideLink,
     LucidePlus,
@@ -113,6 +114,16 @@ export class PublishPage implements OnInit {
   readonly editingVideoId = signal<number | null>(null);
   readonly genres = signal<Genre[]>([]);
   readonly selectedGenreIds = signal<Set<number>>(new Set());
+
+  readonly trailerPreviewPlayback = signal<ProductionVideoPlayback | null>(
+    null,
+  );
+
+  readonly trailerPreviewLoading = signal(false);
+  readonly trailerPreviewFailed = signal(false);
+
+  private trailerPreviewVideoId: number | null = null;
+  private trailerPreviewRequestVersion = 0;
 
   private externalCreditSequence = 0;
   private readonly suggestionTimers = new Map<
@@ -186,6 +197,55 @@ export class PublishPage implements OnInit {
     }
   }
 
+  previewTitle(): string {
+    return (
+      this.detailsForm.controls.title.value.trim() ||
+      this.production()?.title ||
+      ''
+    );
+  }
+
+  previewPosterUrl(): string {
+    return this.artworkForm.controls.posterUrl.value.trim();
+  }
+
+  previewTitleArtUrl(): string {
+    return this.artworkForm.controls.titleArtUrl.value.trim();
+  }
+
+  previewFocalX(): number {
+    return this.artworkForm.controls.posterFocalX.value;
+  }
+
+  previewFocalY(): number {
+    return this.artworkForm.controls.posterFocalY.value;
+  }
+
+  previewTitleArtPosition(): TitleArtPosition {
+    return this.artworkForm.controls.titleArtPosition.value;
+  }
+
+  hasTrailerPreview(): boolean {
+    return (
+      this.production()?.videos.some((video) => video.kind === 'TRAILER') ??
+      false
+    );
+  }
+
+  trailerPreviewThumbnailUrl(): string {
+    const trailer = this.production()?.videos.find(
+      (video) => video.kind === 'TRAILER',
+    );
+
+    return trailer?.videoAsset.thumbnailUrl?.trim() ?? '';
+  }
+
+  onTrailerPreviewPlayerUnavailable(): void {
+    this.trailerPreviewPlayback.set(null);
+    this.trailerPreviewLoading.set(false);
+    this.trailerPreviewFailed.set(true);
+  }
+
   advisoryLabel(advisory: ContentAdvisory): string {
     return (
       CONTENT_ADVISORY_OPTIONS.find((option) => option.value === advisory)
@@ -223,27 +283,136 @@ export class PublishPage implements OnInit {
     );
   }
 
-  saveDetails(): void {
+  saveChanges(): void {
     const production = this.production();
-    if (!production || !this.canEdit() || this.detailsForm.invalid) {
-      this.detailsForm.markAllAsTouched();
+
+    if (
+      !production ||
+      !this.canEdit() ||
+      this.busy() ||
+      !this.hasUnsavedChanges()
+    ) {
       return;
     }
 
-    const value = this.detailsForm.getRawValue();
-    this.runRequest(
-      this.productionApi.update(production.slug, {
-        title: value.title.trim(),
-        description: value.description.trim() || null,
-        type: value.type,
-        releaseYear: value.releaseYear,
-        genreIds: [...this.selectedGenreIds()],
-      }),
-      (updated) => {
-        this.applyProduction(updated);
-        this.notice.set('Datos guardados.');
-      },
-      'No pudimos guardar los datos.',
+    if (this.detailsForm.invalid || this.artworkForm.invalid) {
+      this.detailsForm.markAllAsTouched();
+      this.artworkForm.markAllAsTouched();
+      return;
+    }
+
+    const details = this.detailsForm.getRawValue();
+    const artwork = this.artworkForm.getRawValue();
+
+    const videoDraft = this.videoForm.dirty
+      ? {
+          value: this.videoForm.getRawValue(),
+          editingId: this.editingVideoId(),
+          videoUrlDisabled: this.videoForm.controls.videoUrl.disabled,
+        }
+      : null;
+
+    this.busy.set(true);
+    this.error.set(null);
+    this.notice.set(null);
+
+    let request$ = of(production);
+
+    if (this.detailsForm.dirty) {
+      request$ = request$.pipe(
+        switchMap(() =>
+          this.productionApi.update(production.slug, {
+            title: details.title.trim(),
+            description: details.description.trim() || null,
+            type: details.type,
+            releaseYear: details.releaseYear,
+            genreIds: [...this.selectedGenreIds()],
+          }),
+        ),
+      );
+    }
+
+    if (this.artworkForm.dirty) {
+      request$ = request$.pipe(
+        switchMap(() =>
+          this.productionApi.updateArtwork(production.slug, {
+            posterUrl: artwork.posterUrl.trim() || null,
+            posterFocalX: artwork.posterFocalX,
+            posterFocalY: artwork.posterFocalY,
+            landscapeArtworkUrl: artwork.landscapeArtworkUrl.trim() || null,
+            titleArtUrl: artwork.titleArtUrl.trim() || null,
+            titleArtPosition: artwork.titleArtUrl.trim()
+              ? artwork.titleArtPosition
+              : null,
+          }),
+        ),
+      );
+    }
+
+    request$
+      .pipe(
+        finalize(() => this.busy.set(false)),
+        takeUntilDestroyed(this.destroyRef),
+      )
+      .subscribe({
+        next: (updated) => {
+          this.applyProduction(updated);
+
+          this.detailsForm.markAsPristine();
+          this.artworkForm.markAsPristine();
+
+          if (videoDraft) {
+            this.editingVideoId.set(videoDraft.editingId);
+
+            if (videoDraft.videoUrlDisabled) {
+              this.videoForm.controls.videoUrl.disable({ emitEvent: false });
+            } else {
+              this.videoForm.controls.videoUrl.enable({ emitEvent: false });
+            }
+
+            this.videoForm.setValue(videoDraft.value, { emitEvent: false });
+            this.videoForm.markAsDirty();
+          }
+
+          this.notice.set('Cambios guardados.');
+        },
+        error: (error) => {
+          this.error.set(
+            apiErrorMessage(error, 'No pudimos guardar los cambios.'),
+          );
+        },
+      });
+  }
+
+  discardChanges(): void {
+    const production = this.production();
+
+    if (!production || this.busy() || !this.hasLocalChanges()) {
+      return;
+    }
+
+    this.editingVideoId.set(null);
+    this.applyProduction(production);
+
+    this.error.set(null);
+    this.notice.set('Cambios descartados.');
+  }
+
+  hasUnsavedChanges(): boolean {
+    return this.detailsForm.dirty || this.artworkForm.dirty;
+  }
+
+  hasLocalChanges(): boolean {
+    return this.hasUnsavedChanges() || this.videoForm.dirty;
+  }
+
+  canSaveChanges(): boolean {
+    return (
+      this.canEdit() &&
+      this.hasUnsavedChanges() &&
+      this.detailsForm.valid &&
+      this.artworkForm.valid &&
+      !this.busy()
     );
   }
 
@@ -417,6 +586,10 @@ export class PublishPage implements OnInit {
 
       return next;
     });
+
+    if (this.production()) {
+      this.detailsForm.markAsDirty();
+    }
   }
 
   advisorySelected(advisory: ContentAdvisory): boolean {
@@ -435,11 +608,24 @@ export class PublishPage implements OnInit {
       : [...current, advisory];
 
     this.videoForm.controls.advisories.setValue(next);
+    this.videoForm.controls.advisories.markAsDirty();
   }
 
   submitVideo(): void {
     const production = this.production();
-    if (!production || !this.canEdit() || this.videoForm.invalid) {
+
+    if (!production || !this.canEdit() || this.busy()) {
+      return;
+    }
+
+    if (this.hasUnsavedChanges()) {
+      this.error.set(
+        'Guardá primero los cambios generales de la producción antes de modificar los videos.',
+      );
+      return;
+    }
+
+    if (this.videoForm.invalid) {
       this.videoForm.markAllAsTouched();
       return;
     }
@@ -484,7 +670,6 @@ export class PublishPage implements OnInit {
       }),
       (updated) => {
         this.applyProduction(updated);
-        this.resetVideoForm(updated);
         this.notice.set('Video agregado.');
       },
       'No pudimos agregar el video.',
@@ -492,12 +677,26 @@ export class PublishPage implements OnInit {
   }
 
   editVideo(video: ProductionVideo): void {
-    if (!this.canEdit()) {
+    if (!this.canEdit() || this.busy()) {
       return;
     }
 
-    this.editingVideoId.set(video.id);
+    if (this.hasUnsavedChanges()) {
+      this.error.set(
+        'Guardá primero los cambios generales de la producción antes de editar un video.',
+      );
+      return;
+    }
 
+    if (this.videoForm.dirty) {
+      this.error.set(
+        'Terminá o cancelá los cambios del video actual antes de editar otro.',
+      );
+      return;
+    }
+
+    this.error.set(null);
+    this.editingVideoId.set(video.id);
     this.videoForm.controls.videoUrl.disable();
 
     this.videoForm.setValue({
@@ -509,6 +708,9 @@ export class PublishPage implements OnInit {
       maturity: video.maturity,
       advisories: [...video.advisories],
     });
+
+    this.videoForm.markAsPristine();
+    this.videoForm.markAsUntouched();
   }
 
   cancelVideoEdit(): void {
@@ -522,9 +724,35 @@ export class PublishPage implements OnInit {
     }
   }
 
+  clearVideoDraft(): void {
+    const production = this.production();
+
+    if (!production || this.busy()) {
+      return;
+    }
+
+    this.resetVideoForm(production);
+    this.error.set(null);
+  }
+
   removeVideo(video: ProductionVideo): void {
     const production = this.production();
+
     if (!production || !this.canEdit() || this.busy()) {
+      return;
+    }
+
+    if (this.hasUnsavedChanges()) {
+      this.error.set(
+        'Guardá primero los cambios generales de la producción antes de eliminar un video.',
+      );
+      return;
+    }
+
+    if (this.videoForm.dirty) {
+      this.error.set(
+        'Terminá o cancelá los cambios del video actual antes de eliminar otro.',
+      );
       return;
     }
 
@@ -549,33 +777,6 @@ export class PublishPage implements OnInit {
             apiErrorMessage(error, 'No pudimos eliminar el video.'),
           ),
       });
-  }
-
-  saveArtwork(): void {
-    const production = this.production();
-    if (!production || !this.canEdit() || this.artworkForm.invalid) {
-      this.artworkForm.markAllAsTouched();
-      return;
-    }
-
-    const value = this.artworkForm.getRawValue();
-    this.runRequest(
-      this.productionApi.updateArtwork(production.slug, {
-        posterUrl: value.posterUrl.trim() || null,
-        posterFocalX: value.posterFocalX,
-        posterFocalY: value.posterFocalY,
-        landscapeArtworkUrl: value.landscapeArtworkUrl.trim() || null,
-        titleArtUrl: value.titleArtUrl.trim() || null,
-        titleArtPosition: value.titleArtUrl.trim()
-          ? value.titleArtPosition
-          : null,
-      }),
-      (updated) => {
-        this.applyProduction(updated);
-        this.notice.set('Artwork guardado.');
-      },
-      'No pudimos guardar el artwork.',
-    );
   }
 
   canEdit(): boolean {
@@ -613,26 +814,38 @@ export class PublishPage implements OnInit {
 
   canSubmitForReview(): boolean {
     const production = this.production();
+
     return (
       !!production &&
       production.status === 'DRAFT' &&
       production.moderationStatus === 'NOT_SUBMITTED' &&
+      !this.hasUnsavedChanges() &&
+      !this.videoForm.dirty &&
       this.hasPlayableContent()
     );
   }
 
   reviewHint(): string {
     const production = this.production();
+
     if (!production) {
       return '';
     }
 
     if (production.moderationStatus === 'PENDING') {
-      return 'La obra está siendo revisada.';
+      return 'La producción está siendo revisada. Si necesitás hacer cambios, podés volver a editarla y retirarla de la revisión actual.';
     }
 
     if (production.moderationStatus === 'REJECTED') {
-      return 'Hacé una corrección antes de volver a enviarla.';
+      return 'Realizá las correcciones solicitadas, guardá los cambios y volvé a enviarla a revisión.';
+    }
+
+    if (this.hasUnsavedChanges()) {
+      return 'Tenés cambios generales sin guardar.';
+    }
+
+    if (this.videoForm.dirty) {
+      return 'Tenés cambios de video sin guardar.';
     }
 
     if (!this.hasPlayableContent()) {
@@ -645,7 +858,7 @@ export class PublishPage implements OnInit {
       production.status === 'HIDDEN' &&
       production.moderationStatus === 'APPROVED'
     ) {
-      return 'La obra sigue aprobada. Si la editás, deberá revisarse nuevamente.';
+      return 'La producción está oculta y conserva su aprobación mientras no guardes modificaciones.';
     }
 
     return '';
@@ -675,6 +888,27 @@ export class PublishPage implements OnInit {
     );
   }
 
+  returnToEditing(): void {
+    const production = this.production();
+
+    if (
+      !production ||
+      production.moderationStatus !== 'PENDING' ||
+      this.busy()
+    ) {
+      return;
+    }
+
+    this.runRequest(
+      this.productionApi.withdrawFromReview(production.slug),
+      (updated) => {
+        this.applyProduction(updated);
+        this.notice.set('La producción volvió a edición.');
+      },
+      'No pudimos retirar la producción de revisión.',
+    );
+  }
+
   hide(): void {
     const production = this.production();
     if (!production) {
@@ -693,7 +927,13 @@ export class PublishPage implements OnInit {
 
   restorePublication(): void {
     const production = this.production();
-    if (!production) {
+
+    if (
+      !production ||
+      this.busy() ||
+      this.hasUnsavedChanges() ||
+      this.videoForm.dirty
+    ) {
       return;
     }
 
@@ -790,6 +1030,20 @@ export class PublishPage implements OnInit {
     });
   }
 
+  updatePreviewFocalX(value: number): void {
+    const control = this.artworkForm.controls.posterFocalX;
+
+    control.setValue(value);
+    control.markAsDirty();
+  }
+
+  updatePreviewFocalY(value: number): void {
+    const control = this.artworkForm.controls.posterFocalY;
+
+    control.setValue(value);
+    control.markAsDirty();
+  }
+
   private loadProduction(slug: string): void {
     this.loading.set(true);
     this.productionApi
@@ -811,9 +1065,11 @@ export class PublishPage implements OnInit {
 
   private applyProduction(production: Production): void {
     this.production.set(production);
+
     this.selectedGenreIds.set(
       new Set(production.genres.map((genre) => genre.id)),
     );
+
     this.detailsForm.patchValue({
       title: production.title,
       description: production.description ?? '',
@@ -821,6 +1077,7 @@ export class PublishPage implements OnInit {
       releaseYear: production.releaseYear ?? null,
       structure: production.structure,
     });
+
     this.artworkForm.setValue({
       posterUrl: production.posterUrl ?? '',
       posterFocalX: production.posterFocalX,
@@ -829,8 +1086,13 @@ export class PublishPage implements OnInit {
       titleArtUrl: production.titleArtUrl ?? '',
       titleArtPosition: production.titleArtPosition ?? 'BOTTOM',
     });
+
+    this.detailsForm.markAsPristine();
+    this.artworkForm.markAsPristine();
+
     this.resetVideoForm(production);
     this.syncFormState(production);
+    this.syncTrailerPreview(production);
   }
 
   private syncFormState(production: Production): void {
@@ -878,6 +1140,9 @@ export class PublishPage implements OnInit {
       maturity: 'GENERAL',
       advisories: [],
     });
+
+    this.videoForm.markAsPristine();
+    this.videoForm.markAsUntouched();
   }
 
   private buildCredits(
@@ -1025,6 +1290,78 @@ export class PublishPage implements OnInit {
       .subscribe({
         next: success,
         error: (error) => this.error.set(apiErrorMessage(error, fallbackError)),
+      });
+  }
+
+  private syncTrailerPreview(production: Production): void {
+    const trailer =
+      production.videos.find(
+        (video) =>
+          video.kind === 'TRAILER' && video.videoAsset.status === 'AVAILABLE',
+      ) ??
+      production.videos.find((video) => video.kind === 'TRAILER') ??
+      null;
+
+    if (!trailer) {
+      this.trailerPreviewRequestVersion++;
+      this.trailerPreviewVideoId = null;
+      this.trailerPreviewPlayback.set(null);
+      this.trailerPreviewLoading.set(false);
+      this.trailerPreviewFailed.set(false);
+      return;
+    }
+
+    if (
+      this.trailerPreviewVideoId === trailer.id &&
+      (this.trailerPreviewPlayback() ||
+        this.trailerPreviewLoading() ||
+        this.trailerPreviewFailed())
+    ) {
+      return;
+    }
+
+    this.trailerPreviewVideoId = trailer.id;
+
+    if (trailer.videoAsset.status === 'UNAVAILABLE') {
+      this.trailerPreviewPlayback.set(null);
+      this.trailerPreviewLoading.set(false);
+      this.trailerPreviewFailed.set(true);
+      return;
+    }
+
+    const requestVersion = ++this.trailerPreviewRequestVersion;
+
+    this.trailerPreviewPlayback.set(null);
+    this.trailerPreviewLoading.set(true);
+    this.trailerPreviewFailed.set(false);
+
+    this.productionApi
+      .getPlayback(production.slug, trailer.id)
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: (playback) => {
+          if (requestVersion !== this.trailerPreviewRequestVersion) {
+            return;
+          }
+
+          this.trailerPreviewPlayback.set(playback);
+          this.trailerPreviewLoading.set(false);
+          this.trailerPreviewFailed.set(false);
+        },
+        error: () => {
+          if (requestVersion !== this.trailerPreviewRequestVersion) {
+            return;
+          }
+
+          /*
+           * La preview del trailer es complementaria.
+           * Si playback no está permitido para este estado de la producción,
+           * no ensuciamos el error general de Studio: mostramos la portada.
+           */
+          this.trailerPreviewPlayback.set(null);
+          this.trailerPreviewLoading.set(false);
+          this.trailerPreviewFailed.set(true);
+        },
       });
   }
 }

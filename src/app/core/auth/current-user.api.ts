@@ -33,4 +33,8 @@ export class CurrentUserApi {
   revokeAdultContentConsent(): Observable<CurrentUser> {
     return this.http.delete<CurrentUser>(`${API_URL}/me/adult-content-consent`);
   }
+
+  becomeCreator(): Observable<CurrentUser> {
+    return this.http.put<CurrentUser>(`${API_URL}/me/creator`, {});
+  }
 }

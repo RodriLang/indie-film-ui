@@ -1,6 +1,7 @@
 import {
   ChangeDetectionStrategy,
   Component,
+  computed,
   DestroyRef,
   inject,
   OnInit,
@@ -9,7 +10,7 @@ import {
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
-import { forkJoin, finalize, switchMap, tap } from 'rxjs';
+import { forkJoin, finalize, switchMap, tap, of, map } from 'rxjs';
 import {
   LucideEdit3,
   LucideLogOut,
@@ -76,7 +77,62 @@ export class CreatorPage implements OnInit {
   readonly editing = signal(false);
   readonly error = signal<string | null>(null);
   readonly specialties = signal<Set<CreatorSpecialty>>(new Set());
+  readonly creatorUpgradeConfirming = signal(false);
+  readonly activatingCreator = signal(false);
+
   readonly specialtyOptions = CREATOR_SPECIALTY_OPTIONS;
+
+  readonly displayProfile = computed<CreatorProfile | null>(() => {
+    const profile = this.profile();
+
+    if (profile) {
+      return profile;
+    }
+
+    if (!this.own()) {
+      return null;
+    }
+
+    const user = this.authStore.user();
+
+    if (!user) {
+      return null;
+    }
+
+    return {
+      id: user.id,
+      username: user.username,
+      displayName: user.displayName,
+      bio: user.bio ?? null,
+      avatarUrl: user.avatarUrl ?? null,
+      specialties: user.specialties ?? [],
+    };
+  });
+
+  readonly creatorEligibility = computed<
+    'ELIGIBLE' | 'UNDERAGE' | 'MISSING_BIRTH_DATE' | 'NOT_APPLICABLE'
+  >(() => {
+    const user = this.authStore.user();
+
+    if (!this.own() || user?.role !== 'USER') {
+      return 'NOT_APPLICABLE';
+    }
+
+    if (!user.birthDate) {
+      return 'MISSING_BIRTH_DATE';
+    }
+
+    const today = new Date();
+    const birthDate = new Date(`${user.birthDate}T00:00:00`);
+
+    const eighteenthBirthday = new Date(
+      birthDate.getFullYear() + 18,
+      birthDate.getMonth(),
+      birthDate.getDate(),
+    );
+
+    return today >= eighteenthBirthday ? 'ELIGIBLE' : 'UNDERAGE';
+  });
 
   readonly profileForm = this.fb.nonNullable.group({
     displayName: ['', [Validators.required, Validators.maxLength(100)]],
@@ -85,11 +141,20 @@ export class CreatorPage implements OnInit {
 
   ngOnInit(): void {
     const own = this.route.snapshot.data['own'] === true;
+
     this.own.set(own);
 
+    const user = this.authStore.user();
+
+    if (own && user?.role === 'USER') {
+      this.loading.set(false);
+      return;
+    }
+
     const username = own
-      ? this.authStore.user()?.username
+      ? user?.username
       : this.route.snapshot.paramMap.get('username');
+
     if (!username) {
       this.error.set('No pudimos encontrar el perfil.');
       this.loading.set(false);
@@ -100,7 +165,8 @@ export class CreatorPage implements OnInit {
   }
 
   toggleEdit(): void {
-    const profile = this.profile();
+    const profile = this.displayProfile();
+
     if (!profile) {
       return;
     }
@@ -110,6 +176,7 @@ export class CreatorPage implements OnInit {
         displayName: profile.displayName,
         bio: profile.bio ?? '',
       });
+
       this.specialties.set(new Set(profile.specialties));
     }
 
@@ -130,10 +197,7 @@ export class CreatorPage implements OnInit {
 
     const currentUser = this.authStore.user();
 
-    if (!currentUser?.birthDate) {
-      this.error.set(
-        'Completá tu fecha de nacimiento antes de editar el perfil.',
-      );
+    if (!currentUser) {
       return;
     }
 
@@ -147,7 +211,6 @@ export class CreatorPage implements OnInit {
         displayName: value.displayName.trim(),
         bio: value.bio.trim() || null,
         specialties: [...this.specialties()],
-        birthDate: currentUser.birthDate,
       })
       .pipe(
         tap((user) => {
@@ -160,13 +223,20 @@ export class CreatorPage implements OnInit {
             role: user.role,
           });
         }),
-        switchMap((user) => this.creatorApi.findByUsername(user.username)),
+        switchMap((user) =>
+          user.role === 'CREATOR'
+            ? this.creatorApi.findByUsername(user.username)
+            : of(null),
+        ),
         finalize(() => this.saving.set(false)),
         takeUntilDestroyed(this.destroyRef),
       )
       .subscribe({
         next: (profile) => {
-          this.profile.set(profile);
+          if (profile) {
+            this.profile.set(profile);
+          }
+
           this.editing.set(false);
         },
         error: (error) => {
@@ -175,6 +245,23 @@ export class CreatorPage implements OnInit {
           );
         },
       });
+  }
+
+  startCreatorUpgrade(): void {
+    if (!this.own() || this.authStore.user()?.role !== 'USER') {
+      return;
+    }
+
+    this.creatorUpgradeConfirming.set(true);
+    this.error.set(null);
+  }
+
+  cancelCreatorUpgrade(): void {
+    if (this.activatingCreator()) {
+      return;
+    }
+
+    this.creatorUpgradeConfirming.set(false);
   }
 
   logout(): void {
@@ -212,6 +299,8 @@ export class CreatorPage implements OnInit {
   }
 
   private load(username: string): void {
+    this.loading.set(true);
+
     const profile$ = this.creatorApi.findByUsername(username);
     const productions$ = this.creatorApi.findProductions(username, 0, 24);
     const participations$ = this.creatorApi.findParticipations(username, 0, 24);
@@ -251,6 +340,51 @@ export class CreatorPage implements OnInit {
           this.loading.set(false);
         },
         error: (error) => this.handleLoadError(error),
+      });
+  }
+
+  activateCreator(): void {
+    const user = this.authStore.user();
+
+    if (!this.own() || user?.role !== 'USER' || this.activatingCreator()) {
+      return;
+    }
+
+    this.activatingCreator.set(true);
+    this.error.set(null);
+
+    this.currentUserApi
+      .becomeCreator()
+      .pipe(
+        tap((updatedUser) => {
+          this.authStore.updateUser({
+            displayName: updatedUser.displayName,
+            bio: updatedUser.bio,
+            avatarUrl: updatedUser.avatarUrl,
+            specialties: updatedUser.specialties,
+            birthDate: updatedUser.birthDate,
+            role: updatedUser.role,
+          });
+        }),
+
+        switchMap((updatedUser) =>
+          this.authSession.refresh().pipe(map(() => updatedUser)),
+        ),
+
+        finalize(() => this.activatingCreator.set(false)),
+        takeUntilDestroyed(this.destroyRef),
+      )
+      .subscribe({
+        next: (updatedUser) => {
+          this.creatorUpgradeConfirming.set(false);
+          this.load(updatedUser.username);
+        },
+
+        error: (error) => {
+          this.error.set(
+            apiErrorMessage(error, 'No pudimos activar tu perfil de creador.'),
+          );
+        },
       });
   }
 

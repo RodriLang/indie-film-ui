@@ -141,6 +141,13 @@ export class ProductionApi {
     );
   }
 
+  withdrawFromReview(slug: string): Observable<Production> {
+    return this.http.put<Production>(
+      `${API_URL}/productions/${slug}/withdraw-review`,
+      {},
+    );
+  }
+
   restorePublication(slug: string): Observable<Production> {
     return this.http.put<Production>(
       `${API_URL}/productions/${slug}/restore`,
