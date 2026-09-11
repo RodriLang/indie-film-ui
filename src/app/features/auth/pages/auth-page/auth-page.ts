@@ -22,6 +22,7 @@ import { AuthStore } from '../../../../core/auth/auth.store';
 import { RegistrationRole } from '../../../../core/auth/auth.models';
 import { CreatorSpecialty } from '../../../user/data/creator.models';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { LucideEye, LucideEyeOff } from '@lucide/angular';
 
 function pastDateValidator(
   control: AbstractControl<string>,
@@ -42,9 +43,18 @@ function pastDateValidator(
   return selected < today ? null : { pastDate: true };
 }
 
+function passwordsMatchValidator(
+  control: AbstractControl,
+): ValidationErrors | null {
+  const password = control.get('password')?.value;
+  const confirmPassword = control.get('confirmPassword')?.value;
+
+  return password === confirmPassword ? null : { passwordsMismatch: true };
+}
+
 @Component({
   selector: 'app-auth-page',
-  imports: [ReactiveFormsModule, RouterLink],
+  imports: [ReactiveFormsModule, RouterLink, LucideEye, LucideEyeOff],
   templateUrl: './auth-page.html',
   styleUrl: './auth-page.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -61,6 +71,8 @@ export class AuthPage {
   readonly mode = signal<'login' | 'register'>('login');
   readonly submitting = signal(false);
   readonly error = signal<string | null>(null);
+  readonly loginPasswordVisible = signal(false);
+  readonly registerPasswordVisible = signal(false);
 
   readonly today = new Date().toISOString().slice(0, 10);
 
@@ -69,34 +81,45 @@ export class AuthPage {
     password: ['', Validators.required],
   });
 
-  readonly registerForm = this.fb.nonNullable.group({
-    displayName: ['', [Validators.required, Validators.maxLength(100)]],
+  readonly registerForm = this.fb.nonNullable.group(
+    {
+      displayName: ['', [Validators.required, Validators.maxLength(100)]],
 
-    username: [
-      '',
-      [
-        Validators.required,
-        Validators.minLength(3),
-        Validators.maxLength(50),
-        Validators.pattern(/^[A-Za-z0-9._-]+$/),
+      username: [
+        '',
+        [
+          Validators.required,
+          Validators.minLength(3),
+          Validators.maxLength(50),
+          Validators.pattern(/^[A-Za-z0-9._-]+$/),
+        ],
       ],
-    ],
 
-    email: ['', [Validators.required, Validators.email]],
+      email: ['', [Validators.required, Validators.email]],
 
-    birthDate: ['', [Validators.required, pastDateValidator]],
+      birthDate: ['', [Validators.required, pastDateValidator]],
 
-    role: this.fb.nonNullable.control<RegistrationRole>('USER'),
+      role: this.fb.nonNullable.control<RegistrationRole>('USER'),
 
-    bio: ['', Validators.maxLength(2000)],
+      bio: ['', Validators.maxLength(2000)],
 
-    specialties: this.fb.nonNullable.control<CreatorSpecialty[]>([]),
+      specialties: this.fb.nonNullable.control<CreatorSpecialty[]>([]),
 
-    password: [
-      '',
-      [Validators.required, Validators.minLength(8), Validators.maxLength(64)],
-    ],
-  });
+      password: [
+        '',
+        [
+          Validators.required,
+          Validators.minLength(8),
+          Validators.maxLength(64),
+        ],
+      ],
+
+      confirmPassword: ['', Validators.required],
+    },
+    {
+      validators: passwordsMatchValidator,
+    },
+  );
 
   constructor() {
     this.registerForm.controls.birthDate.valueChanges
@@ -166,8 +189,10 @@ export class AuthPage {
     this.submitting.set(true);
     this.error.set(null);
 
+    const { confirmPassword, ...request } = this.registerForm.getRawValue();
+
     this.authApi
-      .register(this.registerForm.getRawValue())
+      .register(request)
       .pipe(finalize(() => this.submitting.set(false)))
       .subscribe({
         next: (response) => {

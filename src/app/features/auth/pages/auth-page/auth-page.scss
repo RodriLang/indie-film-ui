@@ -102,6 +102,51 @@ textarea {
   }
 }
 
+.password-field {
+  position: relative;
+  min-width: 0;
+
+  input {
+    padding-right: 48px;
+  }
+}
+
+.password-toggle {
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-full);
+
+  background: transparent;
+  color: var(--color-text-subtle);
+
+  position: absolute;
+  top: 50%;
+  right: 4px;
+  transform: translateY(-50%);
+
+  display: grid;
+  place-items: center;
+
+  cursor: pointer;
+
+  &:hover {
+    color: var(--color-text);
+    background: var(--color-surface-2);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--color-border-focus);
+    outline-offset: 1px;
+  }
+
+  svg {
+    width: 17px;
+    height: 17px;
+  }
+}
+
 .field-error {
   margin-top: -2px;
 
@@ -305,7 +350,6 @@ textarea {
     grid-template-columns: 1fr;
   }
 }
-
 
 .forgot-link {
   width: fit-content;

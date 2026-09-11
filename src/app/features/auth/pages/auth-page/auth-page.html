@@ -48,22 +48,44 @@
       <label>
         <span>Contraseña</span>
 
-        <input
-          type="password"
-          formControlName="password"
-          autocomplete="current-password"
-          [attr.aria-invalid]="
-              loginForm.controls.password.touched &&
-              loginForm.controls.password.invalid
-            "
-        />
+        <div class="password-field">
+          <input
+            [type]="loginPasswordVisible() ? 'text' : 'password'"
+            formControlName="password"
+            autocomplete="current-password"
+            [attr.aria-invalid]="
+      loginForm.controls.password.touched &&
+      loginForm.controls.password.invalid
+    "
+          />
+
+          <button
+            type="button"
+            class="password-toggle"
+            [attr.aria-label]="
+      loginPasswordVisible()
+        ? 'Ocultar contraseña'
+        : 'Mostrar contraseña'
+    "
+            [attr.aria-pressed]="loginPasswordVisible()"
+            (click)="loginPasswordVisible.update((visible) => !visible)"
+          >
+            @if (loginPasswordVisible()) {
+            <svg lucideEyeOff></svg>
+            } @else {
+            <svg lucideEye></svg>
+            }
+          </button>
+        </div>
 
         @if (loginFieldError('password'); as message) {
         <small class="field-error">{{ message }}</small>
         }
       </label>
 
-      <a class="forgot-link" routerLink="/forgot-password">¿Olvidaste tu contraseña?</a>
+      <a class="forgot-link" routerLink="/forgot-password"
+        >¿Olvidaste tu contraseña?</a
+      >
 
       <button class="submit-button" type="submit" [disabled]="submitting()">
         {{ submitting() ? 'Entrando…' : 'Entrar' }}
@@ -224,18 +246,63 @@
       <label>
         <span>Contraseña</span>
 
-        <input
-          type="password"
-          formControlName="password"
-          autocomplete="new-password"
-          [attr.aria-invalid]="
-              registerForm.controls.password.touched &&
-              registerForm.controls.password.invalid
-            "
-        />
+        <div class="password-field">
+          <input
+            [type]="registerPasswordVisible() ? 'text' : 'password'"
+            formControlName="password"
+            autocomplete="new-password"
+            [attr.aria-invalid]="registerForm.controls.password.touched && registerForm.controls.password.invalid"
+          />
+
+          <button
+            type="button"
+            class="password-toggle"
+            [attr.aria-label]="registerPasswordVisible() ? 'Ocultar contraseña' : 'Mostrar contraseña'"
+            [attr.aria-pressed]="registerPasswordVisible()"
+            (click)="registerPasswordVisible.update((visible) => !visible)"
+          >
+            @if (registerPasswordVisible()) {
+            <svg lucideEyeOff></svg>
+            } @else {
+            <svg lucideEye></svg>
+            }
+          </button>
+        </div>
 
         @if (registerFieldError('password'); as message) {
         <small class="field-error">{{ message }}</small>
+        }
+      </label>
+
+      <label>
+        <span>Repetir contraseña</span>
+
+        <div class="password-field">
+          <input
+            [type]="registerPasswordVisible() ? 'text' : 'password'"
+            formControlName="confirmPassword"
+            autocomplete="new-password"
+            [attr.aria-invalid]="registerForm.controls.confirmPassword.touched &&(
+              registerForm.controls.confirmPassword.invalid || registerForm.hasError('passwordsMismatch'))"
+          />
+
+          <button
+            type="button"
+            class="password-toggle"
+            [attr.aria-label]="registerPasswordVisible() ? 'Ocultar contraseña' : 'Mostrar contraseña'"
+            (click)="registerPasswordVisible.update((visible) => !visible)"
+          >
+            @if (registerPasswordVisible()) {
+            <svg lucideEyeOff></svg>
+            } @else {
+            <svg lucideEye></svg>
+            }
+          </button>
+        </div>
+
+        @if ( registerForm.controls.confirmPassword.touched &&
+        registerForm.hasError('passwordsMismatch') ) {
+        <small class="field-error"> Las contraseñas no coinciden. </small>
         }
       </label>
 

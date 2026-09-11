@@ -1,6 +1,21 @@
-import { ChangeDetectionStrategy, Component, DestroyRef, inject, OnInit, signal } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  DestroyRef,
+  inject,
+  OnInit,
+  signal,
+} from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { LucideChevronLeft, LucideChevronRight, LucideSearch, LucideUsers } from '@lucide/angular';
+import {
+  LucideCheck,
+  LucideChevronLeft,
+  LucideChevronRight,
+  LucidePencil,
+  LucideSearch,
+  LucideUsers,
+  LucideX,
+} from '@lucide/angular';
 import { finalize } from 'rxjs';
 
 import { apiErrorMessage } from '../../../../core/api/http-error';
@@ -12,15 +27,24 @@ import {
   USER_STATUS_OPTIONS,
   UserAdmin,
   userStatusLabel,
-  UserStatus
+  UserStatus,
 } from '../../data/user-admin.models';
 
 @Component({
   selector: 'app-user-admin-page',
-  imports: [Avatar, LucideChevronLeft, LucideChevronRight, LucideSearch, LucideUsers],
+  imports: [
+    Avatar,
+    LucideCheck,
+    LucideChevronLeft,
+    LucideChevronRight,
+    LucidePencil,
+    LucideSearch,
+    LucideUsers,
+    LucideX,
+  ],
   templateUrl: './user-admin-page.html',
   styleUrl: './user-admin-page.scss',
-  changeDetection: ChangeDetectionStrategy.OnPush
+  changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class UserAdminPage implements OnInit {
   private readonly userAdminApi = inject(UserAdminApi);
@@ -37,6 +61,9 @@ export class UserAdminPage implements OnInit {
   readonly totalPages = signal(0);
   readonly totalElements = signal(0);
   readonly updatingUserId = signal<number | null>(null);
+
+  readonly editingRoleUserId = signal<number | null>(null);
+  readonly editingRole = signal<UserRole | null>(null);
 
   readonly roleOptions = USER_ROLE_OPTIONS;
   readonly statusOptions = USER_STATUS_OPTIONS;
@@ -69,30 +96,76 @@ export class UserAdminPage implements OnInit {
     this.load();
   }
 
-  changeUserRole(user: UserAdmin, event: Event): void {
-    const role = (event.target as HTMLSelectElement).value as UserRole;
+  startRoleEdit(user: UserAdmin): void {
+    if (
+      user.id === this.authStore.user()?.id ||
+      this.updatingUserId() !== null
+    ) {
+      return;
+    }
 
-    if (user.id === this.authStore.user()?.id || role === user.role || this.updatingUserId() !== null) {
+    this.editingRoleUserId.set(user.id);
+    this.editingRole.set(user.role);
+  }
+
+  changeEditingRole(event: Event): void {
+    const role = (event.target as HTMLSelectElement).value as UserRole;
+    this.editingRole.set(role);
+  }
+
+  cancelRoleEdit(): void {
+    if (this.updatingUserId() !== null) {
+      return;
+    }
+
+    this.editingRoleUserId.set(null);
+    this.editingRole.set(null);
+  }
+
+  confirmRoleChange(user: UserAdmin): void {
+    const role = this.editingRole();
+
+    if (
+      !role ||
+      user.id === this.authStore.user()?.id ||
+      role === user.role ||
+      this.updatingUserId() !== null
+    ) {
       return;
     }
 
     this.updatingUserId.set(user.id);
     this.error.set(null);
 
-    this.userAdminApi.updateRole(user.id, { role })
+    this.userAdminApi
+      .updateRole(user.id, { role })
       .pipe(
         finalize(() => this.updatingUserId.set(null)),
-        takeUntilDestroyed(this.destroyRef)
+        takeUntilDestroyed(this.destroyRef),
       )
       .subscribe({
-        next: (updated) => this.users.update((users) =>
-          users.map((current) => current.id === updated.id ? updated : current)
-        ),
+        next: (updated) => {
+          this.users.update((users) =>
+            users.map((current) =>
+              current.id === updated.id ? updated : current,
+            ),
+          );
+
+          this.editingRoleUserId.set(null);
+          this.editingRole.set(null);
+        },
         error: (error) => {
-          this.error.set(apiErrorMessage(error, 'No pudimos actualizar el rol.'));
-          this.load();
-        }
+          this.error.set(
+            apiErrorMessage(error, 'No pudimos actualizar el rol.'),
+          );
+        },
       });
+  }
+
+  roleLabel(role: UserRole): string {
+    return (
+      USER_ROLE_OPTIONS.find((option) => option.value === role)?.label ?? role
+    );
   }
 
   previousPage(): void {
@@ -121,7 +194,7 @@ export class UserAdminPage implements OnInit {
     return new Intl.DateTimeFormat('es-AR', {
       day: '2-digit',
       month: 'short',
-      year: 'numeric'
+      year: 'numeric',
     }).format(new Date(value));
   }
 
@@ -129,13 +202,8 @@ export class UserAdminPage implements OnInit {
     this.loading.set(true);
     this.error.set(null);
 
-    this.userAdminApi.findAll(
-      this.query(),
-      this.role(),
-      this.status(),
-      this.page(),
-      20
-    )
+    this.userAdminApi
+      .findAll(this.query(), this.role(), this.status(), this.page(), 20)
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
         next: (result) => {
@@ -145,9 +213,11 @@ export class UserAdminPage implements OnInit {
           this.loading.set(false);
         },
         error: (error) => {
-          this.error.set(apiErrorMessage(error, 'No pudimos cargar los usuarios.'));
+          this.error.set(
+            apiErrorMessage(error, 'No pudimos cargar los usuarios.'),
+          );
           this.loading.set(false);
-        }
+        },
       });
   }
 }
