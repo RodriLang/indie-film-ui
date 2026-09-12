@@ -8,12 +8,11 @@
     <header
       #hero
       class="detail-hero"
-      [class.has-landscape]="
-    !!item.landscapeArtworkUrl && !heroLandscapeFailed()
-  "
-      [attr.data-title-position]="item.titleArtPosition ?? 'BOTTOM'"
       [style.--focal-x.%]="item.posterFocalX * 100"
       [style.--focal-y.%]="item.posterFocalY * 100"
+      [style.--title-art-x.%]="(item.titleArtX) * 100"
+      [style.--title-art-y.%]="(item.titleArtY) * 100"
+      [style.--title-art-scale]="item.titleArtScale"
     >
       @if (item.posterUrl && !heroPosterFailed()) {
       <img
@@ -21,13 +20,6 @@
         [src]="item.posterUrl"
         [alt]="item.title"
         (error)="heroPosterFailed.set(true)"
-      />
-      } @if ( item.landscapeArtworkUrl && !heroLandscapeFailed() ) {
-      <img
-        class="hero-art hero-art--landscape"
-        [src]="item.landscapeArtworkUrl"
-        [alt]="item.title"
-        (error)="heroLandscapeFailed.set(true)"
       />
       } @if (trailerPlayback(); as playback) {
       <app-autoplay-trailer-player
@@ -68,11 +60,49 @@
           class="title-art"
           [src]="item.titleArtUrl"
           [alt]="item.title"
+          draggable="false"
           (error)="titleArtFailed.set(true)"
         />
-        } @else {
-        <h1>{{ item.title }}</h1>
         }
+
+        <div class="hero-copy">
+          @if (!item.titleArtUrl || titleArtFailed()) {
+          <h1>{{ item.title }}</h1>
+          }
+
+          <div class="meta">
+            <span>{{ typeLabel() }}</span>
+
+            @if (item.releaseYear) {
+            <span>{{ item.releaseYear }}</span>
+            } @if (item.structure === 'EPISODIC') {
+            <span class="series">
+              <svg lucideLayers3></svg>
+              Serie
+            </span>
+            }
+          </div>
+
+          <div class="actions">
+            @if (selectedVideo()) {
+            <button class="play-button" type="button" (click)="play()">
+              <svg lucidePlay></svg>
+              Reproducir
+            </button>
+            }
+
+            <button
+              class="like-button"
+              type="button"
+              [class.liked]="item.likedByCurrentUser"
+              [disabled]="liking()"
+              (click)="toggleLike()"
+            >
+              <svg lucideHeart></svg>
+              <span>{{ item.likeCount }}</span>
+            </button>
+          </div>
+        </div>
 
         <div class="meta">
           <span>{{ typeLabel() }}</span>
@@ -148,11 +178,13 @@
             <div class="credit-invitation-copy">
               <strong>Te invitaron a vincular una participación</strong>
               <span>
-                {{ invitation.credit?.roleDetail || (invitation.credit ? creditLabel(invitation.credit.role) : '') }}
-                · {{ invitation.credit?.personName }}
+                {{ invitation.credit?.roleDetail || (invitation.credit ?
+                creditLabel(invitation.credit.role) : '') }} · {{
+                invitation.credit?.personName }}
               </span>
               <small>
-                Si aceptás, este crédito quedará asociado a tu perfil de creador.
+                Si aceptás, este crédito quedará asociado a tu perfil de
+                creador.
               </small>
             </div>
             <div class="credit-request-actions">
@@ -176,20 +208,18 @@
               </button>
             </div>
           </div>
-          }
-
-          @if (creditNotice()) {
+          } @if (creditNotice()) {
           <div class="credit-feedback success">{{ creditNotice() }}</div>
-          }
-          @if (creditError()) {
+          } @if (creditError()) {
           <div class="credit-feedback error">{{ creditError() }}</div>
-          }
-
-          @if (item.credits.length > 0) {
+          } @if (item.credits.length > 0) {
           <div class="credit-list">
             @for (credit of item.credits; track credit.id) {
             <div class="credit-entry">
-              <div class="credit-row" [class.expanded]="expandedCreditId() === credit.id">
+              <div
+                class="credit-row"
+                [class.expanded]="expandedCreditId() === credit.id"
+              >
                 <span>{{ credit.roleDetail || creditLabel(credit.role) }}</span>
 
                 @if (credit.user) {
@@ -219,76 +249,75 @@
                 <p>{{ explainUnlinkedCredit(credit) }}</p>
 
                 @if (pendingRequestForCredit(credit.id); as pendingRequest) {
-                  @if (
-                    pendingRequest.type === 'OWNER_INVITATION' &&
-                    pendingRequest.requestedUser.id === authStore.user()?.id
-                  ) {
-                  <div class="inline-request-actions">
-                    <button
-                      type="button"
-                      class="request-primary"
-                      [disabled]="!!creditActionBusy()"
-                      (click)="acceptCreditRequest(pendingRequest)"
-                    >
-                      Aceptar vinculación
-                    </button>
-                    <button
-                      type="button"
-                      class="request-secondary"
-                      [disabled]="!!creditActionBusy()"
-                      (click)="rejectCreditRequest(pendingRequest)"
-                    >
-                      Rechazar
-                    </button>
-                  </div>
-                  } @else if (
-                    pendingRequest.type === 'USER_CLAIM' &&
-                    pendingRequest.requestedBy.id === authStore.user()?.id
-                  ) {
+                @if ( pendingRequest.type === 'OWNER_INVITATION' &&
+                pendingRequest.requestedUser.id === authStore.user()?.id ) {
+                <div class="inline-request-actions">
                   <button
                     type="button"
-                    class="context-text-action"
+                    class="request-primary"
                     [disabled]="!!creditActionBusy()"
-                    (click)="cancelCreditRequest(pendingRequest)"
+                    (click)="acceptCreditRequest(pendingRequest)"
                   >
-                    Cancelar reclamo
+                    Aceptar vinculación
                   </button>
-                  }
-                } @else if (!pendingInvitation() && !isOwnProduction()) {
-                  @if (!authStore.authenticated()) {
-                  <button type="button" class="context-text-action" (click)="goToAuth()">
-                    Iniciar sesión para reclamarlo
-                  </button>
-                  } @else if (canClaimCredits()) {
                   <button
                     type="button"
-                    class="context-text-action claim"
+                    class="request-secondary"
                     [disabled]="!!creditActionBusy()"
-                    (click)="claimExistingCredit(credit)"
+                    (click)="rejectCreditRequest(pendingRequest)"
                   >
-                    Soy yo · Reclamar este crédito
+                    Rechazar
                   </button>
-                  }
-                }
+                </div>
+                } @else if ( pendingRequest.type === 'USER_CLAIM' &&
+                pendingRequest.requestedBy.id === authStore.user()?.id ) {
+                <button
+                  type="button"
+                  class="context-text-action"
+                  [disabled]="!!creditActionBusy()"
+                  (click)="cancelCreditRequest(pendingRequest)"
+                >
+                  Cancelar reclamo
+                </button>
+                } } @else if (!pendingInvitation() && !isOwnProduction()) { @if
+                (!authStore.authenticated()) {
+                <button
+                  type="button"
+                  class="context-text-action"
+                  (click)="goToAuth()"
+                >
+                  Iniciar sesión para reclamarlo
+                </button>
+                } @else if (canClaimCredits()) {
+                <button
+                  type="button"
+                  class="context-text-action claim"
+                  [disabled]="!!creditActionBusy()"
+                  (click)="claimExistingCredit(credit)"
+                >
+                  Soy yo · Reclamar este crédito
+                </button>
+                } }
               </div>
               }
             </div>
             }
           </div>
-          }
-
-          @if (!isOwnProduction()) {
+          } @if (!isOwnProduction()) {
           <div class="participation-claim">
             @if (pendingInvitation()) {
             <p>
-              Ya tenés una invitación pendiente en esta producción. Resolvela antes de enviar otro reclamo.
+              Ya tenés una invitación pendiente en esta producción. Resolvela
+              antes de enviar otro reclamo.
             </p>
             } @else if (pendingNewClaim(); as newClaim) {
             <div>
               <strong>Tu solicitud está pendiente</strong>
               <span>
-                {{ newClaim.proposedCredit?.roleDetail || (newClaim.proposedCredit ? creditLabel(newClaim.proposedCredit.role) : '') }}
-                · {{ newClaim.proposedCredit?.personName }}
+                {{ newClaim.proposedCredit?.roleDetail ||
+                (newClaim.proposedCredit ?
+                creditLabel(newClaim.proposedCredit.role) : '') }} · {{
+                newClaim.proposedCredit?.personName }}
               </span>
             </div>
             <button
@@ -300,18 +329,30 @@
               Cancelar solicitud
             </button>
             } @else if (!newClaimOpen()) {
-            <button type="button" class="participation-trigger" (click)="openNewClaim()">
+            <button
+              type="button"
+              class="participation-trigger"
+              (click)="openNewClaim()"
+            >
               ¿Participaste en esta producción y no figurás en los créditos?
               <span>Solicitar agregar mi participación</span>
             </button>
             } @else {
-            <form class="new-claim-form" [formGroup]="newClaimForm" (ngSubmit)="submitNewClaim()">
+            <form
+              class="new-claim-form"
+              [formGroup]="newClaimForm"
+              (ngSubmit)="submitNewClaim()"
+            >
               <div class="new-claim-heading">
                 <div>
                   <strong>Solicitar una participación</strong>
                   <span>El responsable de la producción deberá aprobarla.</span>
                 </div>
-                <button type="button" aria-label="Cerrar" (click)="closeNewClaim()">
+                <button
+                  type="button"
+                  aria-label="Cerrar"
+                  (click)="closeNewClaim()"
+                >
                   <svg lucideX></svg>
                 </button>
               </div>
@@ -332,7 +373,11 @@
 
               <label class="wide">
                 <span>Detalle</span>
-                <input type="text" formControlName="roleDetail" placeholder="Ej. Martín, montaje, cámara B…" />
+                <input
+                  type="text"
+                  formControlName="roleDetail"
+                  placeholder="Ej. Martín, montaje, cámara B…"
+                />
               </label>
 
               <div class="new-claim-actions wide">
@@ -343,7 +388,11 @@
                 >
                   Enviar solicitud
                 </button>
-                <button class="request-secondary" type="button" (click)="closeNewClaim()">
+                <button
+                  class="request-secondary"
+                  type="button"
+                  (click)="closeNewClaim()"
+                >
                   Cancelar
                 </button>
               </div>

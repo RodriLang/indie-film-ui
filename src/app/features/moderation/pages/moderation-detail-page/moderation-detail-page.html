@@ -158,6 +158,8 @@
               <app-avatar
                 [name]="review.reviewedBy.displayName"
                 [imageUrl]="review.reviewedBy.avatarUrl || null"
+                [focalX]="review.reviewedBy.avatarFocalX ?? 0.5"
+                [focalY]="review.reviewedBy.avatarFocalY ?? 0.5"
                 [size]="36"
               />
               <div>

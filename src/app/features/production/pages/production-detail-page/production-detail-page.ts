@@ -101,7 +101,6 @@ export class ProductionDetailPage implements OnInit, OnDestroy {
   readonly error = signal<string | null>(null);
   readonly liking = signal(false);
   readonly heroPosterFailed = signal(false);
-  readonly heroLandscapeFailed = signal(false);
   readonly titleArtFailed = signal(false);
   readonly creditRequests = signal<ProductionCreditLinkRequest[]>([]);
   readonly creditContextLoading = signal(false);

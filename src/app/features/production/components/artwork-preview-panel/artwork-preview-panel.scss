@@ -445,32 +445,35 @@
 
 .stage-title-art {
   position: absolute;
-  left: 50%;
   z-index: 3;
+
+  left: 50%;
+  top: 75%;
 
   width: min(76%, 300px);
   max-height: 23%;
+  height: auto;
 
   object-fit: contain;
 
   filter: drop-shadow(0 3px 10px rgba(0, 0, 0, 0.55));
 
+  transform: translate(-50%, -50%) scale(1);
+
+  transform-origin: center;
+
   pointer-events: none;
+  user-select: none;
+  -webkit-user-drag: none;
 
-  transform: translateX(-50%);
+  &.editable {
+    pointer-events: auto;
+    cursor: grab;
+    touch-action: none;
 
-  &[data-position="TOP"] {
-    top: 7%;
-  }
-
-  &[data-position="CENTER"] {
-    top: 50%;
-
-    transform: translate(-50%, -50%);
-  }
-
-  &[data-position="BOTTOM"] {
-    bottom: 9%;
+    &:active {
+      cursor: grabbing;
+    }
   }
 }
 
@@ -537,6 +540,99 @@
     color: var(--color-text-subtle);
 
     font-size: 0.62rem;
+  }
+}
+
+.stage-title-controls {
+  position: absolute;
+  right: 10px;
+  bottom: 10px;
+  left: 10px;
+  z-index: 6;
+
+  padding: 9px 10px;
+
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: var(--radius-md);
+
+  background: rgba(5, 6, 7, 0.74);
+  backdrop-filter: blur(12px);
+
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+
+  color: white;
+
+  input[type="range"] {
+    min-width: 0;
+    width: 100%;
+    margin: 0;
+
+    accent-color: white;
+    cursor: pointer;
+  }
+
+  button {
+    padding: 0;
+
+    border: 0;
+    background: transparent;
+    color: rgba(255, 255, 255, 0.72);
+
+    font: inherit;
+    font-size: 0.58rem;
+    cursor: pointer;
+
+    &:hover {
+      color: white;
+    }
+  }
+}
+
+.stage-center-guide {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  z-index: 5;
+
+  width: 1px;
+
+  background: rgba(255, 255, 255, 0.46);
+  box-shadow: 0 0 8px rgba(255, 255, 255, 0.14);
+
+  opacity: 0;
+  visibility: hidden;
+
+  transform: translateX(-50%);
+
+  transition:
+    opacity 140ms ease,
+    visibility 140ms ease;
+
+  pointer-events: none;
+
+  &.visible {
+    opacity: 1;
+    visibility: visible;
+  }
+}
+
+.stage-title-scale-label {
+  display: grid;
+  gap: 1px;
+
+  span {
+    color: rgba(255, 255, 255, 0.6);
+    font-size: 0.54rem;
+  }
+
+  strong {
+    color: white;
+    font-size: 0.63rem;
+    font-weight: 680;
   }
 }
 

@@ -10,6 +10,8 @@ export interface CurrentUser {
   displayName: string;
   bio?: string | null;
   avatarUrl?: string | null;
+  avatarFocalX: number | null;
+  avatarFocalY: number | null;
   role: UserRole;
   specialties: CreatorSpecialty[];
   birthDate?: string | null;

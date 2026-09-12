@@ -1,0 +1,20 @@
+<div class="focal-editor">
+  <div
+    class="focal-preview"
+    (pointerdown)="onPointerDown($event)"
+    (pointermove)="onPointerMove($event)"
+    (pointerup)="onPointerUp($event)"
+    (pointercancel)="onPointerUp($event)"
+  >
+    <img
+      [src]="imageUrl()"
+      alt=""
+      draggable="false"
+      [style.object-position]="objectPosition()"
+    />
+  </div>
+
+  <span>Arrastrá la imagen para ajustar el encuadre</span>
+
+  <button type="button" (click)="reset()">Centrar</button>
+</div>

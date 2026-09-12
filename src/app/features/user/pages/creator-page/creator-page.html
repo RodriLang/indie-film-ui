@@ -7,6 +7,8 @@
       <app-avatar
         [name]="creator.displayName"
         [imageUrl]="creator.avatarUrl || null"
+        [focalX]="creator.avatarFocalX ?? 0.5"
+        [focalY]="creator.avatarFocalY ?? 0.5"
         [size]="92"
       />
       <div class="profile-copy">
@@ -49,6 +51,56 @@
     <p class="page-error">{{ error() }}</p>
     } @if (editing()) {
     <section class="edit-panel">
+      <div class="avatar-editor">
+        <div class="avatar-edit-preview">
+          @if (creator.avatarUrl) {
+          <app-image-focal-editor
+            [imageUrl]="creator.avatarUrl"
+            [initialX]="avatarFocalX()"
+            [initialY]="avatarFocalY()"
+            (focalChange)="onAvatarFocalChange($event)"
+          />
+          } @else {
+          <app-avatar [name]="creator.displayName" [size]="120" />
+          }
+        </div>
+
+        <div class="avatar-editor-copy">
+          <strong>Foto de perfil</strong>
+
+          <span> JPEG, PNG o WebP · hasta 5 MB </span>
+
+          @if (creator.avatarUrl) {
+          <small> Arrastrá la foto para ajustar cómo se verá tu avatar. </small>
+          }
+
+          <div class="avatar-editor-actions">
+            <label class="avatar-file-picker" [class.disabled]="avatarBusy()">
+              <input
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                [disabled]="avatarBusy()"
+                (change)="onAvatarSelected($event)"
+              />
+
+              {{ avatarBusy() ? 'Procesando…' : creator.avatarUrl ? 'Cambiar
+              foto' : 'Subir foto' }}
+            </label>
+
+            @if (creator.avatarUrl) {
+            <button
+              type="button"
+              class="avatar-remove-button"
+              (click)="removeAvatar()"
+              [disabled]="avatarBusy()"
+            >
+              Quitar
+            </button>
+            }
+          </div>
+        </div>
+      </div>
+
       <form [formGroup]="profileForm" (ngSubmit)="saveProfile()">
         <label>
           <span>Nombre</span>

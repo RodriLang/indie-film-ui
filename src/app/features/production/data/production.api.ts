@@ -9,12 +9,13 @@ import {
   Genre,
   OwnProductionPage,
   Production,
+  ProductionArtworkType,
   ProductionLikeResponse,
   ProductionPage,
   ProductionStatus,
   ProductionType,
   ProductionVideoPlayback,
-  UpdateProductionArtworkRequest,
+  UpdateProductionArtworkMetadataRequest,
   UpdateProductionRequest,
   UpdateProductionVideoRequest,
 } from './production.models';
@@ -99,11 +100,35 @@ export class ProductionApi {
 
   updateArtwork(
     slug: string,
-    request: UpdateProductionArtworkRequest,
+    request: UpdateProductionArtworkMetadataRequest,
   ): Observable<Production> {
     return this.http.put<Production>(
       `${API_URL}/productions/${slug}/artwork`,
       request,
+    );
+  }
+
+
+  uploadArtwork(
+    slug: string,
+    type: ProductionArtworkType,
+    file: File,
+  ): Observable<Production> {
+    const formData = new FormData();
+    formData.append('file', file);
+
+    return this.http.put<Production>(
+      `${API_URL}/productions/${slug}/artwork/${type}`,
+      formData,
+    );
+  }
+
+  removeArtwork(
+    slug: string,
+    type: ProductionArtworkType,
+  ): Observable<Production> {
+    return this.http.delete<Production>(
+      `${API_URL}/productions/${slug}/artwork/${type}`,
     );
   }
 

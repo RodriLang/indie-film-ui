@@ -9,7 +9,7 @@ import {
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
-import { finalize, of, switchMap } from 'rxjs';
+import { finalize, Observable, of, switchMap } from 'rxjs';
 import {
   LucideCheck,
   LucideLink,
@@ -40,13 +40,13 @@ import {
   Genre,
   PRODUCTION_TYPE_OPTIONS,
   Production,
+  ProductionArtworkType,
   ProductionCreditRequest,
   ProductionStructure,
   ProductionType,
   ProductionVideo,
   ProductionVideoKind,
   ProductionVideoPlayback,
-  TitleArtPosition,
 } from '../../data/production.models';
 import { ArtworkPreviewPanel } from '../../components/artwork-preview-panel/artwork-preview-panel';
 
@@ -99,11 +99,6 @@ export class PublishPage implements OnInit {
     'TRAILER',
     'EXTRA',
   ];
-  readonly titlePositions: readonly TitleArtPosition[] = [
-    'TOP',
-    'CENTER',
-    'BOTTOM',
-  ];
 
   readonly production = signal<Production | null>(null);
   readonly loading = signal(false);
@@ -114,6 +109,13 @@ export class PublishPage implements OnInit {
   readonly editingVideoId = signal<number | null>(null);
   readonly genres = signal<Genre[]>([]);
   readonly selectedGenreIds = signal<Set<number>>(new Set());
+
+  readonly posterFile = signal<File | null>(null);
+  readonly posterLocalUrl = signal<string | null>(null);
+  readonly posterRemovalPending = signal(false);
+  readonly titleArtFile = signal<File | null>(null);
+  readonly titleArtLocalUrl = signal<string | null>(null);
+  readonly titleArtRemovalPending = signal(false);
 
   readonly trailerPreviewPlayback = signal<ProductionVideoPlayback | null>(
     null,
@@ -170,7 +172,6 @@ export class PublishPage implements OnInit {
   });
 
   readonly artworkForm = this.fb.group({
-    posterUrl: this.fb.nonNullable.control('', Validators.maxLength(1000)),
     posterFocalX: this.fb.nonNullable.control(0.5, [
       Validators.min(0),
       Validators.max(1),
@@ -179,12 +180,18 @@ export class PublishPage implements OnInit {
       Validators.min(0),
       Validators.max(1),
     ]),
-    landscapeArtworkUrl: this.fb.nonNullable.control(
-      '',
-      Validators.maxLength(1000),
-    ),
-    titleArtUrl: this.fb.nonNullable.control('', Validators.maxLength(1000)),
-    titleArtPosition: this.fb.nonNullable.control<TitleArtPosition>('BOTTOM'),
+    titleArtX: this.fb.nonNullable.control(0.5, [
+      Validators.min(0),
+      Validators.max(1),
+    ]),
+    titleArtY: this.fb.nonNullable.control(0.75, [
+      Validators.min(0),
+      Validators.max(1),
+    ]),
+    titleArtScale: this.fb.nonNullable.control(1, [
+      Validators.min(0.5),
+      Validators.max(2.5),
+    ]),
   });
 
   ngOnInit(): void {
@@ -206,11 +213,19 @@ export class PublishPage implements OnInit {
   }
 
   previewPosterUrl(): string {
-    return this.artworkForm.controls.posterUrl.value.trim();
+    if (this.posterRemovalPending()) {
+      return '';
+    }
+
+    return this.posterLocalUrl() ?? this.production()?.posterUrl ?? '';
   }
 
   previewTitleArtUrl(): string {
-    return this.artworkForm.controls.titleArtUrl.value.trim();
+    if (this.titleArtRemovalPending()) {
+      return '';
+    }
+
+    return this.titleArtLocalUrl() ?? this.production()?.titleArtUrl ?? '';
   }
 
   previewFocalX(): number {
@@ -221,8 +236,57 @@ export class PublishPage implements OnInit {
     return this.artworkForm.controls.posterFocalY.value;
   }
 
-  previewTitleArtPosition(): TitleArtPosition {
-    return this.artworkForm.controls.titleArtPosition.value;
+  previewTitleArtX(): number {
+    return this.artworkForm.controls.titleArtX.value;
+  }
+
+  previewTitleArtY(): number {
+    return this.artworkForm.controls.titleArtY.value;
+  }
+
+  previewTitleArtScale(): number {
+    return this.artworkForm.controls.titleArtScale.value;
+  }
+
+  updatePreviewTitleArtX(value: number): void {
+    const control = this.artworkForm.controls.titleArtX;
+
+    control.setValue(value);
+    control.markAsDirty();
+  }
+
+  updatePreviewTitleArtY(value: number): void {
+    const control = this.artworkForm.controls.titleArtY;
+
+    control.setValue(value);
+    control.markAsDirty();
+  }
+
+  updateTitleArtScale(event: Event): void {
+    const value = Number((event.target as HTMLInputElement).value);
+    const control = this.artworkForm.controls.titleArtScale;
+
+    control.setValue(value);
+    control.markAsDirty();
+  }
+
+  resetTitleArtLayout(): void {
+    this.artworkForm.patchValue({
+      titleArtX: 0.5,
+      titleArtY: 0.75,
+      titleArtScale: 1,
+    });
+
+    this.artworkForm.controls.titleArtX.markAsDirty();
+    this.artworkForm.controls.titleArtY.markAsDirty();
+    this.artworkForm.controls.titleArtScale.markAsDirty();
+  }
+
+  updatePreviewTitleArtScale(value: number): void {
+    const control = this.artworkForm.controls.titleArtScale;
+
+    control.setValue(value);
+    control.markAsDirty();
   }
 
   hasTrailerPreview(): boolean {
@@ -332,22 +396,29 @@ export class PublishPage implements OnInit {
       );
     }
 
+    request$ = this.applyArtworkFileChanges(request$, production.slug);
+
     if (this.artworkForm.dirty) {
       request$ = request$.pipe(
         switchMap(() =>
           this.productionApi.updateArtwork(production.slug, {
-            posterUrl: artwork.posterUrl.trim() || null,
-            posterFocalX: artwork.posterFocalX,
-            posterFocalY: artwork.posterFocalY,
-            landscapeArtworkUrl: artwork.landscapeArtworkUrl.trim() || null,
-            titleArtUrl: artwork.titleArtUrl.trim() || null,
-            titleArtPosition: artwork.titleArtUrl.trim()
-              ? artwork.titleArtPosition
-              : null,
+            posterFocalX: this.posterRemovalPending()
+              ? 0.5
+              : artwork.posterFocalX,
+            posterFocalY: this.posterRemovalPending()
+              ? 0.5
+              : artwork.posterFocalY,
+            titleArtX: this.titleArtRemovalPending() ? 0.5 : artwork.titleArtX,
+            titleArtY: this.titleArtRemovalPending() ? 0.75 : artwork.titleArtY,
+            titleArtScale: this.titleArtRemovalPending()
+              ? 1
+              : artwork.titleArtScale,
           }),
         ),
       );
     }
+
+    request$ = this.applyArtworkFileChanges(request$, production.slug);
 
     request$
       .pipe(
@@ -399,7 +470,11 @@ export class PublishPage implements OnInit {
   }
 
   hasUnsavedChanges(): boolean {
-    return this.detailsForm.dirty || this.artworkForm.dirty;
+    return (
+      this.detailsForm.dirty ||
+      this.artworkForm.dirty ||
+      this.hasPendingArtworkFiles()
+    );
   }
 
   hasLocalChanges(): boolean {
@@ -978,10 +1053,6 @@ export class PublishPage implements OnInit {
     }[kind];
   }
 
-  titlePositionLabel(position: TitleArtPosition): string {
-    return { TOP: 'Arriba', CENTER: 'Centro', BOTTOM: 'Abajo' }[position];
-  }
-
   statusLabel(): string {
     const production = this.production();
     if (!production) {
@@ -1044,6 +1115,55 @@ export class PublishPage implements OnInit {
     control.markAsDirty();
   }
 
+  onArtworkFileSelected(event: Event, type: ProductionArtworkType): void {
+    const input = event.target as HTMLInputElement;
+    const file = input.files?.[0] ?? null;
+
+    input.value = '';
+
+    if (!file) {
+      return;
+    }
+
+    const validationError = this.validateArtworkFile(file, type);
+
+    if (validationError) {
+      this.error.set(validationError);
+      return;
+    }
+
+    this.error.set(null);
+    this.setArtworkDraft(type, file);
+  }
+
+  markArtworkForRemoval(type: ProductionArtworkType): void {
+    if (!this.canEdit() || this.busy()) {
+      return;
+    }
+
+    this.clearArtworkLocalFile(type);
+
+    switch (type) {
+      case 'POSTER':
+        this.posterRemovalPending.set(!!this.production()?.posterUrl);
+        break;
+      case 'TITLE_ART':
+        this.titleArtRemovalPending.set(!!this.production()?.titleArtUrl);
+        break;
+    }
+  }
+
+  cancelArtworkRemoval(type: ProductionArtworkType): void {
+    switch (type) {
+      case 'POSTER':
+        this.posterRemovalPending.set(false);
+        break;
+      case 'TITLE_ART':
+        this.titleArtRemovalPending.set(false);
+        break;
+    }
+  }
+
   private loadProduction(slug: string): void {
     this.loading.set(true);
     this.productionApi
@@ -1079,13 +1199,14 @@ export class PublishPage implements OnInit {
     });
 
     this.artworkForm.setValue({
-      posterUrl: production.posterUrl ?? '',
-      posterFocalX: production.posterFocalX,
-      posterFocalY: production.posterFocalY,
-      landscapeArtworkUrl: production.landscapeArtworkUrl ?? '',
-      titleArtUrl: production.titleArtUrl ?? '',
-      titleArtPosition: production.titleArtPosition ?? 'BOTTOM',
+      posterFocalX: production.posterFocalX ?? 0.5,
+      posterFocalY: production.posterFocalY ?? 0.5,
+      titleArtX: production.titleArtX ?? 0.5,
+      titleArtY: production.titleArtY ?? 0.75,
+      titleArtScale: production.titleArtScale ?? 1,
     });
+
+    this.clearArtworkDrafts();
 
     this.detailsForm.markAsPristine();
     this.artworkForm.markAsPristine();
@@ -1093,6 +1214,140 @@ export class PublishPage implements OnInit {
     this.resetVideoForm(production);
     this.syncFormState(production);
     this.syncTrailerPreview(production);
+  }
+
+  private applyArtworkFileChanges(
+    source: Observable<Production>,
+    slug: string,
+  ): Observable<Production> {
+    let request$ = source;
+
+    const changes: readonly {
+      type: ProductionArtworkType;
+      file: File | null;
+      remove: boolean;
+    }[] = [
+      {
+        type: 'POSTER',
+        file: this.posterFile(),
+        remove: this.posterRemovalPending(),
+      },
+      {
+        type: 'TITLE_ART',
+        file: this.titleArtFile(),
+        remove: this.titleArtRemovalPending(),
+      },
+    ];
+
+    for (const change of changes) {
+      if (change.file) {
+        request$ = request$.pipe(
+          switchMap(() =>
+            this.productionApi.uploadArtwork(slug, change.type, change.file!),
+          ),
+        );
+      } else if (change.remove) {
+        request$ = request$.pipe(
+          switchMap(() => this.productionApi.removeArtwork(slug, change.type)),
+        );
+      }
+    }
+
+    return request$;
+  }
+
+  private hasPendingArtworkFiles(): boolean {
+    return (
+      this.posterFile() !== null ||
+      this.titleArtFile() !== null ||
+      this.posterRemovalPending() ||
+      this.titleArtRemovalPending()
+    );
+  }
+
+  private validateArtworkFile(
+    file: File,
+    type: ProductionArtworkType,
+  ): string | null {
+    const maxBytes = type === 'TITLE_ART' ? 5 * 1024 * 1024 : 10 * 1024 * 1024;
+    const allowedTypes =
+      type === 'TITLE_ART'
+        ? ['image/png']
+        : ['image/jpeg', 'image/png', 'image/webp'];
+
+    if (!allowedTypes.includes(file.type)) {
+      return type === 'TITLE_ART'
+        ? 'El arte de título debe ser un archivo PNG.'
+        : 'La imagen debe ser JPEG, PNG o WebP.';
+    }
+
+    if (file.size > maxBytes) {
+      return type === 'TITLE_ART'
+        ? 'El arte de título no puede superar los 5 MB.'
+        : 'La imagen no puede superar los 10 MB.';
+    }
+
+    return null;
+  }
+
+  private setArtworkDraft(type: ProductionArtworkType, file: File): void {
+    this.clearArtworkLocalFile(type);
+
+    const localUrl = URL.createObjectURL(file);
+
+    switch (type) {
+      case 'POSTER':
+        this.posterFile.set(file);
+        this.posterLocalUrl.set(localUrl);
+        this.posterRemovalPending.set(false);
+
+        this.artworkForm.controls.posterFocalX.setValue(0.5);
+        this.artworkForm.controls.posterFocalY.setValue(0.5);
+        this.artworkForm.controls.posterFocalX.markAsDirty();
+        this.artworkForm.controls.posterFocalY.markAsDirty();
+        break;
+
+      case 'TITLE_ART':
+        this.titleArtFile.set(file);
+        this.titleArtLocalUrl.set(localUrl);
+        this.titleArtRemovalPending.set(false);
+
+        this.artworkForm.controls.titleArtX.setValue(0.5);
+        this.artworkForm.controls.titleArtY.setValue(0.75);
+        this.artworkForm.controls.titleArtScale.setValue(1);
+        this.artworkForm.controls.titleArtX.markAsDirty();
+        this.artworkForm.controls.titleArtY.markAsDirty();
+        this.artworkForm.controls.titleArtScale.markAsDirty();
+        break;
+    }
+  }
+
+  private clearArtworkLocalFile(type: ProductionArtworkType): void {
+    const revoke = (url: string | null): void => {
+      if (url) {
+        URL.revokeObjectURL(url);
+      }
+    };
+
+    switch (type) {
+      case 'POSTER':
+        revoke(this.posterLocalUrl());
+        this.posterFile.set(null);
+        this.posterLocalUrl.set(null);
+        break;
+      case 'TITLE_ART':
+        revoke(this.titleArtLocalUrl());
+        this.titleArtFile.set(null);
+        this.titleArtLocalUrl.set(null);
+        break;
+    }
+  }
+
+  private clearArtworkDrafts(): void {
+    this.clearArtworkLocalFile('POSTER');
+    this.clearArtworkLocalFile('TITLE_ART');
+    this.posterRemovalPending.set(false);
+    this.titleArtRemovalPending.set(false);
   }
 
   private syncFormState(production: Production): void {

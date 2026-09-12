@@ -17,6 +17,27 @@ export class CurrentUserApi {
     return this.http.put<CurrentUser>(`${API_URL}/me/profile`, request);
   }
 
+  updateAvatar(file: File): Observable<CurrentUser> {
+    const formData = new FormData();
+    formData.append('file', file);
+
+    return this.http.put<CurrentUser>(`${API_URL}/me/avatar`, formData);
+  }
+
+  removeAvatar(): Observable<CurrentUser> {
+    return this.http.delete<CurrentUser>(`${API_URL}/me/avatar`);
+  }
+
+  updateAvatarFocalPoint(focalX: number, focalY: number) {
+    return this.http.patch<CurrentUser>(
+      `${API_URL}/me/avatar/focal-point`,
+      {
+        focalX,
+        focalY,
+      },
+    );
+  }
+
   updateBirthDate(birthDate: string): Observable<CurrentUser> {
     return this.http.put<CurrentUser>(`${API_URL}/me/birth-date`, {
       birthDate,

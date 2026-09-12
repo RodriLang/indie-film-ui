@@ -483,39 +483,120 @@
         </p>
       </div>
 
-      <form class="form-grid" [formGroup]="artworkForm">
-        <label class="wide">
-          <span>Poster URL</span>
-
-          <input
-            type="url"
-            formControlName="posterUrl"
-            placeholder="https://..."
-          />
-        </label>
-
-        <label class="wide">
-          <span>Title art transparente URL</span>
-
-          <input
-            type="url"
-            formControlName="titleArtUrl"
-            placeholder="PNG o WebP con fondo transparente"
-          />
-        </label>
-
-        <label>
-          <span>Posición del título</span>
-
-          <select formControlName="titleArtPosition">
-            @for (position of titlePositions; track position) {
-            <option [value]="position">
-              {{ titlePositionLabel(position) }}
-            </option>
+      <div class="artwork-upload-grid">
+        <article class="artwork-upload-card">
+          <div class="artwork-upload-preview poster-preview">
+            @if (previewPosterUrl(); as posterUrl) {
+            <img [src]="posterUrl" [alt]="previewTitle() || 'Portada'" />
+            } @else {
+            <span>Sin portada</span>
             }
-          </select>
-        </label>
-      </form>
+          </div>
+
+          <div class="artwork-upload-copy">
+            <strong>Portada</strong>
+            <span>JPEG, PNG o WebP · hasta 10 MB</span>
+            @if (posterFile(); as file) {
+            <small>{{ file.name }}</small>
+            } @else if (posterRemovalPending()) {
+            <small>Se eliminará al guardar.</small>
+            }
+
+            <div class="artwork-upload-actions">
+              <label
+                class="file-picker"
+                [class.disabled]="!canEdit() || busy()"
+              >
+                <input
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp"
+                  [disabled]="!canEdit() || busy()"
+                  (change)="onArtworkFileSelected($event, 'POSTER')"
+                />
+                {{ previewPosterUrl() ? 'Reemplazar' : 'Elegir imagen' }}
+              </label>
+
+              @if (posterRemovalPending()) {
+              <button
+                type="button"
+                class="text-button"
+                (click)="cancelArtworkRemoval('POSTER')"
+                [disabled]="busy()"
+              >
+                Conservar
+              </button>
+              } @else if (previewPosterUrl()) {
+              <button
+                type="button"
+                class="text-button danger-text"
+                (click)="markArtworkForRemoval('POSTER')"
+                [disabled]="!canEdit() || busy()"
+              >
+                Quitar
+              </button>
+              }
+            </div>
+          </div>
+        </article>
+
+        <article class="artwork-upload-card">
+          <div class="artwork-upload-preview title-art-preview">
+            @if (previewTitleArtUrl(); as titleArtUrl) {
+            <img
+              [src]="titleArtUrl"
+              [alt]="previewTitle() || 'Arte de título'"
+            />
+            } @else {
+            <span>Sin arte de título</span>
+            }
+          </div>
+
+          <div class="artwork-upload-copy">
+            <strong>Arte de título transparente</strong>
+            <span>PNG · hasta 5 MB</span>
+            @if (titleArtFile(); as file) {
+            <small>{{ file.name }}</small>
+            } @else if (titleArtRemovalPending()) {
+            <small>Se eliminará al guardar.</small>
+            }
+
+            <div class="artwork-upload-actions">
+              <label
+                class="file-picker"
+                [class.disabled]="!canEdit() || busy()"
+              >
+                <input
+                  type="file"
+                  accept="image/png"
+                  [disabled]="!canEdit() || busy()"
+                  (change)="onArtworkFileSelected($event, 'TITLE_ART')"
+                />
+                {{ previewTitleArtUrl() ? 'Reemplazar' : 'Elegir PNG' }}
+              </label>
+
+              @if (titleArtRemovalPending()) {
+              <button
+                type="button"
+                class="text-button"
+                (click)="cancelArtworkRemoval('TITLE_ART')"
+                [disabled]="busy()"
+              >
+                Conservar
+              </button>
+              } @else if (previewTitleArtUrl()) {
+              <button
+                type="button"
+                class="text-button danger-text"
+                (click)="markArtworkForRemoval('TITLE_ART')"
+                [disabled]="!canEdit() || busy()"
+              >
+                Quitar
+              </button>
+              }
+            </div>
+          </div>
+        </article>
+      </div>
 
       <app-artwork-preview-panel
         [editable]="canEdit()"
@@ -524,7 +605,9 @@
         [posterFocalX]="previewFocalX()"
         [posterFocalY]="previewFocalY()"
         [titleArtUrl]="previewTitleArtUrl()"
-        [titleArtPosition]="previewTitleArtPosition()"
+        [titleArtX]="previewTitleArtX()"
+        [titleArtY]="previewTitleArtY()"
+        [titleArtScale]="previewTitleArtScale()"
         [hasTrailer]="hasTrailerPreview()"
         [trailerThumbnailUrl]="trailerPreviewThumbnailUrl()"
         [trailerPlayback]="trailerPreviewPlayback()"
@@ -532,6 +615,9 @@
         [trailerFailed]="trailerPreviewFailed()"
         (focalXChange)="updatePreviewFocalX($event)"
         (focalYChange)="updatePreviewFocalY($event)"
+        (titleArtXChange)="updatePreviewTitleArtX($event)"
+        (titleArtYChange)="updatePreviewTitleArtY($event)"
+        (titleArtScaleChange)="updatePreviewTitleArtScale($event)"
         (trailerPlayerUnavailable)="onTrailerPreviewPlayerUnavailable()"
       />
     </section>

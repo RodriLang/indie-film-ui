@@ -31,9 +31,30 @@
   object-position: var(--focal-x, 50%) var(--focal-y, 50%);
 }
 
-.hero-art--landscape {
-  display: none;
-  object-position: center;
+.detail-hero {
+  position: relative;
+  overflow: hidden;
+}
+
+.title-art {
+  position: absolute;
+  z-index: 4;
+
+  left: var(--title-art-x);
+  top: var(--title-art-y);
+
+  width: 50%;
+  max-height: 38%;
+  height: auto;
+
+  object-fit: contain;
+
+  transform: translate(-50%, -50%) scale(var(--title-art-scale));
+
+  transform-origin: center;
+  pointer-events: none;
+  user-select: none;
+  -webkit-user-drag: none;
 }
 
 .hero-shade {
@@ -124,19 +145,6 @@
   object-position: left center;
   position: absolute;
   left: 22px;
-}
-
-.detail-hero[data-title-position="TOP"] .title-art {
-  top: 8%;
-}
-
-.detail-hero[data-title-position="CENTER"] .title-art {
-  top: 45%;
-  transform: translateY(-50%);
-}
-
-.detail-hero[data-title-position="BOTTOM"] .title-art {
-  bottom: 118px;
 }
 
 .meta {
@@ -301,12 +309,6 @@
     width: min(100%, 1180px);
     aspect-ratio: 16 / 9;
   }
-  .detail-hero.has-landscape .hero-art--poster {
-    display: none;
-  }
-  .hero-art--landscape {
-    display: block;
-  }
   .hero-copy {
     padding: 42px;
   }
@@ -316,9 +318,6 @@
   }
   .title-art {
     left: 42px;
-  }
-  .detail-hero[data-title-position="BOTTOM"] .title-art {
-    bottom: 132px;
   }
   .content-grid {
     display: grid;

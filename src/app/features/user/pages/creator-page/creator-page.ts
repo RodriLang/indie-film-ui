@@ -38,6 +38,11 @@ import {
   CreatorSpecialty,
 } from '../../data/creator.models';
 import { CurrentUserApi } from '../../../../core/auth/current-user.api';
+import { CurrentUser } from '../../../../core/auth/auth.models';
+import {
+  ImageFocalEditor,
+  ImageFocalPoint,
+} from '../../../shared/components/image-focal-editor/image-focal-editor';
 
 @Component({
   selector: 'app-creator-page',
@@ -51,6 +56,7 @@ import { CurrentUserApi } from '../../../../core/auth/current-user.api';
     LucidePlus,
     LucideShieldCheck,
     LucideUsers,
+    ImageFocalEditor,
   ],
   templateUrl: './creator-page.html',
   styleUrl: './creator-page.scss',
@@ -74,11 +80,16 @@ export class CreatorPage implements OnInit {
   readonly participations = signal<CreatorParticipation[]>([]);
   readonly loading = signal(true);
   readonly saving = signal(false);
+  readonly avatarBusy = signal(false);
   readonly editing = signal(false);
   readonly error = signal<string | null>(null);
   readonly specialties = signal<Set<CreatorSpecialty>>(new Set());
   readonly creatorUpgradeConfirming = signal(false);
   readonly activatingCreator = signal(false);
+
+  readonly avatarFocalX = signal(0.5);
+  readonly avatarFocalY = signal(0.5);
+  readonly avatarFocalDirty = signal(false);
 
   readonly specialtyOptions = CREATOR_SPECIALTY_OPTIONS;
 
@@ -105,6 +116,8 @@ export class CreatorPage implements OnInit {
       displayName: user.displayName,
       bio: user.bio ?? null,
       avatarUrl: user.avatarUrl ?? null,
+      avatarFocalX: user.avatarFocalX ?? 0.5,
+      avatarFocalY: user.avatarFocalY ?? 0.5,
       specialties: user.specialties ?? [],
     };
   });
@@ -178,6 +191,10 @@ export class CreatorPage implements OnInit {
       });
 
       this.specialties.set(new Set(profile.specialties));
+
+      this.avatarFocalX.set(profile.avatarFocalX ?? 0.5);
+      this.avatarFocalY.set(profile.avatarFocalY ?? 0.5);
+      this.avatarFocalDirty.set(false);
     }
 
     this.editing.update((value) => !value);
@@ -213,21 +230,28 @@ export class CreatorPage implements OnInit {
         specialties: [...this.specialties()],
       })
       .pipe(
-        tap((user) => {
-          this.authStore.updateUser({
-            displayName: user.displayName,
-            bio: user.bio,
-            avatarUrl: user.avatarUrl,
-            specialties: user.specialties,
-            birthDate: user.birthDate,
-            role: user.role,
-          });
+        switchMap((user) => {
+          if (!this.avatarFocalDirty() || !user.avatarUrl) {
+            return of(user);
+          }
+
+          return this.currentUserApi.updateAvatarFocalPoint(
+            this.avatarFocalX(),
+            this.avatarFocalY(),
+          );
         }),
+
+        tap((user) => {
+          this.applyCurrentUser(user);
+          this.avatarFocalDirty.set(false);
+        }),
+
         switchMap((user) =>
           user.role === 'CREATOR'
             ? this.creatorApi.findByUsername(user.username)
             : of(null),
         ),
+
         finalize(() => this.saving.set(false)),
         takeUntilDestroyed(this.destroyRef),
       )
@@ -239,9 +263,91 @@ export class CreatorPage implements OnInit {
 
           this.editing.set(false);
         },
+
         error: (error) => {
           this.error.set(
             apiErrorMessage(error, 'No pudimos guardar el perfil.'),
+          );
+        },
+      });
+  }
+
+  onAvatarSelected(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    const file = input.files?.[0] ?? null;
+
+    input.value = '';
+
+    if (!file || this.avatarBusy()) {
+      return;
+    }
+
+    if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) {
+      this.error.set('La foto de perfil debe ser JPEG, PNG o WebP.');
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      this.error.set('La foto de perfil no puede superar los 5 MB.');
+      return;
+    }
+
+    this.avatarBusy.set(true);
+    this.error.set(null);
+
+    this.currentUserApi
+      .updateAvatar(file)
+      .pipe(
+        finalize(() => this.avatarBusy.set(false)),
+        takeUntilDestroyed(this.destroyRef),
+      )
+      .subscribe({
+        next: (user) => {
+          this.applyCurrentUser(user);
+
+          this.avatarFocalX.set(user.avatarFocalX ?? 0.5);
+          this.avatarFocalY.set(user.avatarFocalY ?? 0.5);
+          this.avatarFocalDirty.set(false);
+        },
+        error: (error) => {
+          this.error.set(
+            apiErrorMessage(error, 'No pudimos actualizar la foto de perfil.'),
+          );
+        },
+      });
+  }
+
+  onAvatarFocalChange(focal: ImageFocalPoint): void {
+    this.avatarFocalX.set(focal.x);
+    this.avatarFocalY.set(focal.y);
+    this.avatarFocalDirty.set(true);
+  }
+
+  removeAvatar(): void {
+    if (this.avatarBusy() || !this.authStore.user()?.avatarUrl) {
+      return;
+    }
+
+    this.avatarBusy.set(true);
+    this.error.set(null);
+
+    this.currentUserApi
+      .removeAvatar()
+      .pipe(
+        finalize(() => this.avatarBusy.set(false)),
+        takeUntilDestroyed(this.destroyRef),
+      )
+      .subscribe({
+        next: (user) => {
+          this.applyCurrentUser(user);
+
+          this.avatarFocalX.set(0.5);
+          this.avatarFocalY.set(0.5);
+          this.avatarFocalDirty.set(false);
+        },
+        error: (error) => {
+          this.error.set(
+            apiErrorMessage(error, 'No pudimos eliminar la foto de perfil.'),
           );
         },
       });
@@ -298,6 +404,37 @@ export class CreatorPage implements OnInit {
     return creditRoleLabel(role);
   }
 
+  private applyCurrentUser(user: CurrentUser): void {
+    const currentUser = this.authStore.user();
+
+    const normalizedUser = {
+      displayName: user.displayName ?? currentUser?.displayName,
+      bio: user.bio ?? currentUser?.bio ?? null,
+      avatarUrl: user.avatarUrl ?? null,
+      avatarFocalX: user.avatarFocalX ?? currentUser?.avatarFocalX ?? 0.5,
+      avatarFocalY: user.avatarFocalY ?? currentUser?.avatarFocalY ?? 0.5,
+      specialties: user.specialties ?? currentUser?.specialties ?? [],
+      birthDate: user.birthDate ?? currentUser?.birthDate ?? null,
+      role: user.role ?? currentUser?.role,
+    };
+
+    this.authStore.updateUser(normalizedUser);
+
+    this.profile.update((profile) =>
+      profile
+        ? {
+            ...profile,
+            displayName: normalizedUser.displayName ?? profile.displayName,
+            bio: normalizedUser.bio,
+            avatarUrl: normalizedUser.avatarUrl,
+            avatarFocalX: normalizedUser.avatarFocalX,
+            avatarFocalY: normalizedUser.avatarFocalY,
+            specialties: normalizedUser.specialties,
+          }
+        : profile,
+    );
+  }
+
   private load(username: string): void {
     this.loading.set(true);
 
@@ -316,6 +453,9 @@ export class CreatorPage implements OnInit {
         .subscribe({
           next: (data) => {
             this.profile.set(data.profile);
+            this.avatarFocalX.set(data.profile.avatarFocalX ?? 0.5);
+            this.avatarFocalY.set(data.profile.avatarFocalY ?? 0.5);
+            this.avatarFocalDirty.set(false);
             this.productions.set(data.productions.content);
             this.participations.set(data.participations.content);
             this.ownProductions.set(data.ownProductions.content);
@@ -335,6 +475,9 @@ export class CreatorPage implements OnInit {
       .subscribe({
         next: (data) => {
           this.profile.set(data.profile);
+          this.avatarFocalX.set(data.profile.avatarFocalX ?? 0.5);
+          this.avatarFocalY.set(data.profile.avatarFocalY ?? 0.5);
+          this.avatarFocalDirty.set(false);
           this.productions.set(data.productions.content);
           this.participations.set(data.participations.content);
           this.loading.set(false);
@@ -356,16 +499,7 @@ export class CreatorPage implements OnInit {
     this.currentUserApi
       .becomeCreator()
       .pipe(
-        tap((updatedUser) => {
-          this.authStore.updateUser({
-            displayName: updatedUser.displayName,
-            bio: updatedUser.bio,
-            avatarUrl: updatedUser.avatarUrl,
-            specialties: updatedUser.specialties,
-            birthDate: updatedUser.birthDate,
-            role: updatedUser.role,
-          });
-        }),
+        tap((updatedUser) => this.applyCurrentUser(updatedUser)),
 
         switchMap((updatedUser) =>
           this.authSession.refresh().pipe(map(() => updatedUser)),

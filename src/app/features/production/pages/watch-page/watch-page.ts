@@ -9,7 +9,6 @@ import {
   viewChild,
 } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { Location } from '@angular/common';
 import { ActivatedRoute, Router } from '@angular/router';
 import {
   LucideArrowLeft,
@@ -57,7 +56,6 @@ import { ProductionProgress } from '../../data/viewing-progress.models';
 export class WatchPage implements OnInit, OnDestroy {
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
-  private readonly location = inject(Location);
   private readonly productionApi = inject(ProductionApi);
   private readonly currentUserApi = inject(CurrentUserApi);
   private readonly authStore = inject(AuthStore);
@@ -160,20 +158,20 @@ export class WatchPage implements OnInit, OnDestroy {
   }
 
   commitSeek(event: Event): void {
-  const input = event.target as HTMLInputElement;
-  const seconds = Number(input.value);
+    const input = event.target as HTMLInputElement;
+    const seconds = Number(input.value);
 
-  if (!Number.isFinite(seconds)) {
-    return;
+    if (!Number.isFinite(seconds)) {
+      return;
+    }
+
+    this.seekPreview.set(seconds);
+    this.currentTime.set(seconds);
+
+    this.videoPlayer()?.seekTo(seconds);
+
+    this.scheduleControlsHide();
   }
-
-  this.seekPreview.set(seconds);
-  this.currentTime.set(seconds);
-
-  this.videoPlayer()?.seekTo(seconds);
-
-  this.scheduleControlsHide();
-}
 
   cancelSeeking(): void {
     this.seekPreview.set(null);
@@ -198,23 +196,22 @@ export class WatchPage implements OnInit, OnDestroy {
   }
 
   onVideoTimeChanged(time: VideoPlaybackTime): void {
-  this.duration.set(time.durationSeconds);
+    this.duration.set(time.durationSeconds);
 
-  const preview = this.seekPreview();
+    const preview = this.seekPreview();
 
-  if (preview !== null) {
-    const reachedTarget =
-      Math.abs(time.positionSeconds - preview) <= 1.5;
+    if (preview !== null) {
+      const reachedTarget = Math.abs(time.positionSeconds - preview) <= 1.5;
 
-    if (!reachedTarget) {
-      return;
+      if (!reachedTarget) {
+        return;
+      }
+
+      this.seekPreview.set(null);
     }
 
-    this.seekPreview.set(null);
+    this.currentTime.set(time.positionSeconds);
   }
-
-  this.currentTime.set(time.positionSeconds);
-}
 
   saveBirthDate(): void {
     const birthDate = this.birthDateInput();
@@ -441,7 +438,16 @@ export class WatchPage implements OnInit, OnDestroy {
 
     this.videoPlayer()?.flushProgress();
 
-    this.location.back();
+    const production = this.production();
+
+    if (production) {
+      void this.router.navigate(['/production', production.slug], {
+        replaceUrl: true,
+      });
+      return;
+    }
+
+    void this.router.navigate(['/']);
   }
 
   private loadPlayback(): void {

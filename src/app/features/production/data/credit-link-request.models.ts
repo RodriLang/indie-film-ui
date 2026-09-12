@@ -29,6 +29,8 @@ export interface CreditLinkRequestUser {
   username: string;
   displayName: string;
   avatarUrl?: string | null;
+  avatarFocalX: number | null;
+  avatarFocalY: number | null;
 }
 
 export interface ProductionCreditLinkRequest {

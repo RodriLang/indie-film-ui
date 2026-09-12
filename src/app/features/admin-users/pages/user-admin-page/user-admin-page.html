@@ -79,6 +79,8 @@
           <app-avatar
             [name]="user.displayName"
             [imageUrl]="user.avatarUrl || null"
+            [focalX]="user.avatarFocalX ?? 0.5"
+            [focalY]="user.avatarFocalY ?? 0.5"
             [size]="42"
           />
           <div>

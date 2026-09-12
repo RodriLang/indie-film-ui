@@ -18,7 +18,7 @@ export type ProductionModerationStatus =
   | 'APPROVED'
   | 'REJECTED';
 export type ProductionVideoKind = 'MAIN' | 'EPISODE' | 'TRAILER' | 'EXTRA';
-export type TitleArtPosition = 'TOP' | 'CENTER' | 'BOTTOM';
+export type ProductionArtworkType = 'POSTER' | 'TITLE_ART';
 export type VideoProviderType = 'YOUTUBE';
 export type VideoAssetStatus = 'UNKNOWN' | 'AVAILABLE' | 'UNAVAILABLE';
 
@@ -76,6 +76,8 @@ export interface CreatorSummary {
   username: string;
   displayName: string;
   avatarUrl?: string | null;
+  avatarFocalX: number | null;
+  avatarFocalY: number | null;
 }
 
 export interface VideoAsset {
@@ -146,9 +148,10 @@ export interface Production extends ProductionSummary {
   genres: Genre[];
   posterFocalX: number;
   posterFocalY: number;
-  landscapeArtworkUrl?: string | null;
   titleArtUrl?: string | null;
-  titleArtPosition?: TitleArtPosition | null;
+  titleArtX: number;
+  titleArtY: number;
+  titleArtScale: number;
   videos: ProductionVideo[];
   credits: ProductionCredit[];
   publishedAt?: string | null;
@@ -203,13 +206,12 @@ export interface UpdateProductionVideoRequest {
   advisories?: ContentAdvisory[];
 }
 
-export interface UpdateProductionArtworkRequest {
-  posterUrl?: string | null;
+export interface UpdateProductionArtworkMetadataRequest {
   posterFocalX?: number | null;
   posterFocalY?: number | null;
-  landscapeArtworkUrl?: string | null;
-  titleArtUrl?: string | null;
-  titleArtPosition?: TitleArtPosition | null;
+  titleArtX?: number | null;
+  titleArtY?: number | null;
+  titleArtScale?: number | null;
 }
 
 export interface ProductionLikeResponse {

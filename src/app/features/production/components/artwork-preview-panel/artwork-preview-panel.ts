@@ -3,12 +3,10 @@ import {
   Component,
   input,
   output,
+  signal,
 } from '@angular/core';
 
-import {
-  ProductionVideoPlayback,
-  TitleArtPosition,
-} from '../../data/production.models';
+import { ProductionVideoPlayback } from '../../data/production.models';
 import { AutoplayTrailerPlayer } from '../../../discovery/components/autoplay-trailer-player/autoplay-trailer-player';
 
 @Component({
@@ -22,12 +20,15 @@ export class ArtworkPreviewPanel {
   readonly editable = input(false);
 
   readonly title = input('');
+
   readonly posterUrl = input('');
   readonly posterFocalX = input(0.5);
   readonly posterFocalY = input(0.5);
 
   readonly titleArtUrl = input('');
-  readonly titleArtPosition = input<TitleArtPosition>('BOTTOM');
+  readonly titleArtX = input(0.5);
+  readonly titleArtY = input(0.75);
+  readonly titleArtScale = input(1);
 
   readonly hasTrailer = input(false);
   readonly trailerThumbnailUrl = input('');
@@ -37,9 +38,21 @@ export class ArtworkPreviewPanel {
 
   readonly focalXChange = output<number>();
   readonly focalYChange = output<number>();
+
+  readonly titleArtXChange = output<number>();
+  readonly titleArtYChange = output<number>();
+  readonly titleArtScaleChange = output<number>();
+
   readonly trailerPlayerUnavailable = output<void>();
 
+  readonly titleArtDragging = signal(false);
+
   private draggingFocalPoint = false;
+
+  private titleArtStartPointerX = 0;
+  private titleArtStartPointerY = 0;
+  private titleArtStartX = 0.5;
+  private titleArtStartY = 0.75;
 
   poster(): string {
     return this.posterUrl().trim();
@@ -54,11 +67,11 @@ export class ArtworkPreviewPanel {
   }
 
   normalizedFocalX(): number {
-    return this.normalizeFocal(this.posterFocalX());
+    return this.normalizePosition(this.posterFocalX(), 0.5);
   }
 
   normalizedFocalY(): number {
-    return this.normalizeFocal(this.posterFocalY());
+    return this.normalizePosition(this.posterFocalY(), 0.5);
   }
 
   focalXPercent(): number {
@@ -71,6 +84,40 @@ export class ArtworkPreviewPanel {
 
   posterObjectPosition(): string {
     return `${this.focalXPercent()}% ${this.focalYPercent()}%`;
+  }
+
+  normalizedTitleArtX(): number {
+    return this.normalizePosition(this.titleArtX(), 0.5);
+  }
+
+  normalizedTitleArtY(): number {
+    return this.normalizePosition(this.titleArtY(), 0.75);
+  }
+
+  normalizedTitleArtScale(): number {
+    const value = this.titleArtScale();
+
+    if (!Number.isFinite(value)) {
+      return 1;
+    }
+
+    return Math.min(2.5, Math.max(0.5, value));
+  }
+
+  titleArtXPercent(): number {
+    return Math.round(this.normalizedTitleArtX() * 100);
+  }
+
+  titleArtYPercent(): number {
+    return Math.round(this.normalizedTitleArtY() * 100);
+  }
+
+  titleArtScalePercent(): number {
+    return Math.round(this.normalizedTitleArtScale() * 100);
+  }
+
+  isTitleArtHorizontallyCentered(): boolean {
+    return Math.abs(this.normalizedTitleArtX() - 0.5) <= 0.01;
   }
 
   stageFallbackUrl(): string {
@@ -90,7 +137,7 @@ export class ArtworkPreviewPanel {
 
     const input = event.target as HTMLInputElement;
 
-    this.focalXChange.emit(this.normalizeFocal(Number(input.value)));
+    this.focalXChange.emit(this.normalizePosition(Number(input.value), 0.5));
   }
 
   changeFocalY(event: Event): void {
@@ -100,7 +147,7 @@ export class ArtworkPreviewPanel {
 
     const input = event.target as HTMLInputElement;
 
-    this.focalYChange.emit(this.normalizeFocal(Number(input.value)));
+    this.focalYChange.emit(this.normalizePosition(Number(input.value), 0.5));
   }
 
   startFocalEdit(event: PointerEvent, element: HTMLElement): void {
@@ -147,6 +194,107 @@ export class ArtworkPreviewPanel {
     this.draggingFocalPoint = false;
   }
 
+  startTitleArtEdit(event: PointerEvent, stage: HTMLElement): void {
+    if (!this.editable() || !this.titleArt()) {
+      return;
+    }
+
+    event.preventDefault();
+    event.stopPropagation();
+
+    this.titleArtDragging.set(true);
+
+    this.titleArtStartPointerX = event.clientX;
+    this.titleArtStartPointerY = event.clientY;
+
+    this.titleArtStartX = this.normalizedTitleArtX();
+    this.titleArtStartY = this.normalizedTitleArtY();
+
+    const element = event.currentTarget as HTMLElement;
+
+    if (!element.hasPointerCapture(event.pointerId)) {
+      element.setPointerCapture(event.pointerId);
+    }
+  }
+
+  moveTitleArtEdit(event: PointerEvent, stage: HTMLElement): void {
+    if (!this.titleArtDragging() || !this.editable()) {
+      return;
+    }
+
+    event.preventDefault();
+
+    const rect = stage.getBoundingClientRect();
+
+    if (rect.width <= 0 || rect.height <= 0) {
+      return;
+    }
+
+    const deltaX = (event.clientX - this.titleArtStartPointerX) / rect.width;
+
+    const deltaY = (event.clientY - this.titleArtStartPointerY) / rect.height;
+
+    let x = this.normalizePosition(this.titleArtStartX + deltaX, 0.5);
+
+    if (Math.abs(x - 0.5) <= 0.015) {
+      x = 0.5;
+    }
+
+    this.titleArtXChange.emit(x);
+
+    this.titleArtYChange.emit(
+      this.normalizePosition(this.titleArtStartY + deltaY, 0.75),
+    );
+  }
+
+  stopTitleArtEdit(event: PointerEvent): void {
+    if (!this.titleArtDragging()) {
+      return;
+    }
+
+    this.titleArtDragging.set(false);
+
+    const element = event.currentTarget as HTMLElement;
+
+    if (element.hasPointerCapture(event.pointerId)) {
+      element.releasePointerCapture(event.pointerId);
+    }
+  }
+
+  cancelTitleArtEdit(): void {
+    this.titleArtDragging.set(false);
+  }
+
+  changeTitleArtScale(event: Event): void {
+    if (!this.editable()) {
+      return;
+    }
+
+    const input = event.target as HTMLInputElement;
+
+    this.titleArtScaleChange.emit(
+      this.normalizeTitleArtScale(Number(input.value)),
+    );
+  }
+
+  resetTitleArtLayout(): void {
+    if (!this.editable()) {
+      return;
+    }
+
+    this.titleArtXChange.emit(0.5);
+    this.titleArtYChange.emit(0.75);
+    this.titleArtScaleChange.emit(1);
+  }
+
+  private normalizeTitleArtScale(value: number): number {
+    if (!Number.isFinite(value)) {
+      return 1;
+    }
+
+    return Math.min(2.5, Math.max(0.5, value));
+  }
+
   private updateFocalPoint(event: PointerEvent, element: HTMLElement): void {
     const rect = element.getBoundingClientRect();
 
@@ -154,17 +302,23 @@ export class ArtworkPreviewPanel {
       return;
     }
 
-    const x = this.normalizeFocal((event.clientX - rect.left) / rect.width);
+    const x = this.normalizePosition(
+      (event.clientX - rect.left) / rect.width,
+      0.5,
+    );
 
-    const y = this.normalizeFocal((event.clientY - rect.top) / rect.height);
+    const y = this.normalizePosition(
+      (event.clientY - rect.top) / rect.height,
+      0.5,
+    );
 
     this.focalXChange.emit(x);
     this.focalYChange.emit(y);
   }
 
-  private normalizeFocal(value: number): number {
+  private normalizePosition(value: number, fallback: number): number {
     if (!Number.isFinite(value)) {
-      return 0.5;
+      return fallback;
     }
 
     return Math.min(1, Math.max(0, value));

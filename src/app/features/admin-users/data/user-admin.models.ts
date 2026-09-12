@@ -9,6 +9,8 @@ export interface UserAdmin {
   username: string;
   displayName: string;
   avatarUrl?: string | null;
+  avatarFocalX: number | null;
+  avatarFocalY: number | null;
   role: UserRole;
   status: UserStatus;
   createdAt: string;

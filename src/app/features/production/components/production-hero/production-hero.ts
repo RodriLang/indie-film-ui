@@ -14,7 +14,6 @@ import { Production, productionTypeLabel } from '../../data/production.models';
 export class ProductionHero {
   readonly production = input.required<Production>();
   readonly posterFailed = signal(false);
-  readonly landscapeFailed = signal(false);
   readonly titleArtFailed = signal(false);
   readonly typeLabel = computed(() => productionTypeLabel(this.production().type));
 }

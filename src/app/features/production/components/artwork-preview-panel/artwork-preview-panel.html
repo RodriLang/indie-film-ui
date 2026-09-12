@@ -173,8 +173,8 @@
   </section>
 
   <!-- =====================================================
-       STAGE
-       ===================================================== -->
+     STAGE
+     ===================================================== -->
 
   <section class="stage-section">
     <div class="subsection-heading">
@@ -186,21 +186,25 @@
           un trailer disponible se reproduce automáticamente; si no, se utiliza
           la portada.
         </p>
+
+        @if (titleArt() && editable()) {
+        <small> Arrastrá el título gráfico para posicionarlo. </small>
+        }
       </div>
     </div>
 
     <div class="stage-preview-wrapper">
-      <div class="stage-frame">
+      <div #stageFrame class="stage-frame">
         @if (stageFallbackUrl(); as fallback) {
         <img
           class="stage-fallback"
           [src]="fallback"
           [alt]="displayTitle()"
           [style.object-position]="
-              fallback === poster()
-                ? posterObjectPosition()
-                : '50% 50%'
-            "
+            fallback === poster()
+              ? posterObjectPosition()
+              : '50% 50%'
+          "
         />
         } @else {
         <div class="stage-placeholder">Sin portada</div>
@@ -215,15 +219,51 @@
 
         <div class="stage-vignette"></div>
 
-        @if (titleArt(); as art) {
+        @if (titleArt() && editable()) {
+        <span
+          class="stage-center-guide"
+          [class.visible]="titleArtDragging() && isTitleArtHorizontallyCentered()"
+        ></span>
+        } @if (titleArt(); as art) {
         <img
           class="stage-title-art"
+          [class.editable]="editable()"
           [src]="art"
           [alt]="displayTitle()"
-          [attr.data-position]="titleArtPosition()"
+          draggable="false"
+          [style.left.%]="titleArtXPercent()"
+          [style.top.%]="titleArtYPercent()"
+          [style.transform]="'translate(-50%, -50%) scale(' + normalizedTitleArtScale() +')'"
+          (pointerdown)="startTitleArtEdit($event, stageFrame)"
+          (pointermove)="moveTitleArtEdit($event, stageFrame)"
+          (pointerup)="stopTitleArtEdit($event)"
+          (pointercancel)="stopTitleArtEdit($event)"
+          (lostpointercapture)="cancelTitleArtEdit()"
         />
         } @else {
         <div class="stage-title">{{ displayTitle() }}</div>
+        } @if (titleArt() && editable()) {
+        <div class="stage-title-controls">
+          <div class="stage-title-scale-label">
+            <span>Tamaño</span>
+
+            <strong> {{ titleArtScalePercent() }}% </strong>
+          </div>
+
+          <input
+            type="range"
+            min="0.5"
+            max="2.5"
+            step="0.05"
+            [value]="normalizedTitleArtScale()"
+            aria-label="Tamaño del título gráfico"
+            (input)="changeTitleArtScale($event)"
+          />
+
+          <button type="button" (click)="resetTitleArtLayout()">
+            Restablecer
+          </button>
+        </div>
         } @if (trailerLoading()) {
         <span class="stage-state"> Cargando trailer… </span>
         } @else if (trailerFailed()) {

@@ -23,6 +23,8 @@ export interface CreatorCreditSuggestion {
   username: string;
   displayName: string;
   avatarUrl?: string | null;
+  avatarFocalX: number | null;
+  avatarFocalY: number | null;
   specialties: CreatorSpecialty[];
 }
 
@@ -32,6 +34,8 @@ export interface CreatorProfile {
   displayName: string;
   bio?: string | null;
   avatarUrl?: string | null;
+  avatarFocalX: number | null;
+  avatarFocalY: number | null;
   specialties: CreatorSpecialty[];
 }
 
@@ -48,7 +52,6 @@ export interface CreatorParticipation {
 export interface UpdateCreatorProfileRequest {
   displayName: string;
   bio?: string | null;
-  avatarUrl?: string | null;
   specialties: CreatorSpecialty[];
 }
 
