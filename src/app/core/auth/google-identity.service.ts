@@ -63,7 +63,7 @@ export class GoogleIdentityService {
         client_id: GOOGLE_CLIENT_ID,
         ux_mode: 'popup',
         auto_select: false,
-        use_fedcm_for_button: true,
+        use_fedcm_for_button: false,
         callback: (response) => {
           if (response.credential) {
             this.credentialHandler?.(response.credential);
