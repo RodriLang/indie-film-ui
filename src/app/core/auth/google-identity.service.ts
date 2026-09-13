@@ -83,7 +83,7 @@ export class GoogleIdentityService {
     google.renderButton(container, {
       type: 'standard',
       theme: 'filled_black',
-      size: 'medium',
+      size: 'large',
       text: 'continue_with',
       shape: 'pill',
       logo_alignment: 'left',
