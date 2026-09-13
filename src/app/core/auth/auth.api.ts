@@ -6,6 +6,9 @@ import { API_URL } from '../config/api.config';
 import {
   AuthResponse,
   ForgotPasswordRequest,
+  GoogleAuthResponse,
+  GoogleLinkRequest,
+  GoogleRegistrationRequest,
   LoginRequest,
   RegistrationResponse,
   RegisterRequest,
@@ -29,7 +32,10 @@ export class AuthApi {
   }
 
   register(request: RegisterRequest): Observable<RegistrationResponse> {
-    return this.http.post<RegistrationResponse>(`${API_URL}/auth/register`, request);
+    return this.http.post<RegistrationResponse>(
+      `${API_URL}/auth/register`,
+      request,
+    );
   }
 
   refresh(): Observable<AuthResponse> {
@@ -47,18 +53,58 @@ export class AuthApi {
   }
 
   verifyEmail(request: VerifyEmailRequest): Observable<void> {
-    return this.http.post<void>(`${API_URL}/auth/email-verification/confirm`, request);
+    return this.http.post<void>(
+      `${API_URL}/auth/email-verification/confirm`,
+      request,
+    );
   }
 
-  resendVerificationEmail(request: ResendVerificationEmailRequest): Observable<void> {
-    return this.http.post<void>(`${API_URL}/auth/email-verification/resend`, request);
+  resendVerificationEmail(
+    request: ResendVerificationEmailRequest,
+  ): Observable<void> {
+    return this.http.post<void>(
+      `${API_URL}/auth/email-verification/resend`,
+      request,
+    );
   }
 
   requestPasswordReset(request: ForgotPasswordRequest): Observable<void> {
-    return this.http.post<void>(`${API_URL}/auth/password-reset/request`, request);
+    return this.http.post<void>(
+      `${API_URL}/auth/password-reset/request`,
+      request,
+    );
   }
 
   resetPassword(request: ResetPasswordRequest): Observable<void> {
-    return this.http.post<void>(`${API_URL}/auth/password-reset/confirm`, request);
+    return this.http.post<void>(
+      `${API_URL}/auth/password-reset/confirm`,
+      request,
+    );
+  }
+
+  continueWithGoogle(credential: string): Observable<GoogleAuthResponse> {
+    return this.http.post<GoogleAuthResponse>(
+      `${API_URL}/auth/google`,
+      { credential },
+      { withCredentials: true },
+    );
+  }
+
+  registerWithGoogle(
+    request: GoogleRegistrationRequest,
+  ): Observable<AuthResponse> {
+    return this.http.post<AuthResponse>(
+      `${API_URL}/auth/google/register`,
+      request,
+      { withCredentials: true },
+    );
+  }
+
+  linkGoogle(request: GoogleLinkRequest): Observable<AuthResponse> {
+    return this.http.post<AuthResponse>(
+      `${API_URL}/auth/google/link`,
+      request,
+      { withCredentials: true },
+    );
   }
 }

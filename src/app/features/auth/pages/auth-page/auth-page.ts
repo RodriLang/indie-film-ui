@@ -19,10 +19,15 @@ import { apiErrorCode, apiErrorMessage } from '../../../../core/api/http-error';
 import { AuthApi } from '../../../../core/auth/auth.api';
 import { AuthSessionService } from '../../../../core/auth/auth-session.service';
 import { AuthStore } from '../../../../core/auth/auth.store';
-import { RegistrationRole } from '../../../../core/auth/auth.models';
+import {
+  GoogleAuthStatus,
+  GoogleProfile,
+  RegistrationRole,
+} from '../../../../core/auth/auth.models';
 import { CreatorSpecialty } from '../../../user/data/creator.models';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { LucideEye, LucideEyeOff } from '@lucide/angular';
+import { GoogleSignInButton } from '../../../../shared/ui/google-sign-in-button/google-sign-in-button';
 
 function pastDateValidator(
   control: AbstractControl<string>,
@@ -54,7 +59,13 @@ function passwordsMatchValidator(
 
 @Component({
   selector: 'app-auth-page',
-  imports: [ReactiveFormsModule, RouterLink, LucideEye, LucideEyeOff],
+  imports: [
+    ReactiveFormsModule,
+    RouterLink,
+    LucideEye,
+    LucideEyeOff,
+    GoogleSignInButton,
+  ],
   templateUrl: './auth-page.html',
   styleUrl: './auth-page.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -73,6 +84,18 @@ export class AuthPage {
   readonly error = signal<string | null>(null);
   readonly loginPasswordVisible = signal(false);
   readonly registerPasswordVisible = signal(false);
+
+  readonly googleStatus = signal<GoogleAuthStatus | null>(null);
+  readonly googleCredential = signal<string | null>(null);
+  readonly googleProfile = signal<GoogleProfile | null>(null);
+  readonly googleLinkPasswordVisible = signal(false);
+
+  readonly googleLinkForm = this.fb.nonNullable.group({
+    password: [
+      '',
+      [Validators.required, Validators.minLength(8), Validators.maxLength(64)],
+    ],
+  });
 
   readonly today = new Date().toISOString().slice(0, 10);
 
@@ -144,6 +167,10 @@ export class AuthPage {
   }
 
   setMode(mode: 'login' | 'register'): void {
+    if (mode !== this.mode()) {
+      this.cancelGoogleFlow();
+    }
+
     this.mode.set(mode);
     this.error.set(null);
   }
@@ -186,6 +213,11 @@ export class AuthPage {
       return;
     }
 
+    if (this.googleStatus() === 'REGISTRATION_REQUIRED') {
+      this.submitGoogleRegistration();
+      return;
+    }
+
     this.submitting.set(true);
     this.error.set(null);
 
@@ -203,6 +235,7 @@ export class AuthPage {
             },
           });
         },
+
         error: (error) => {
           this.error.set(apiErrorMessage(error, 'No pudimos crear la cuenta.'));
         },
@@ -231,6 +264,110 @@ export class AuthPage {
     }
 
     return 'Revisá este campo.';
+  }
+
+  continueWithGoogle(credential: string): void {
+    if (this.submitting()) {
+      return;
+    }
+
+    this.submitting.set(true);
+    this.error.set(null);
+
+    this.authSession
+      .continueWithGoogle(credential)
+      .pipe(
+        finalize(() => this.submitting.set(false)),
+        takeUntilDestroyed(this.destroyRef),
+      )
+      .subscribe({
+        next: (response) => {
+          switch (response.status) {
+            case 'AUTHENTICATED':
+              void this.router.navigateByUrl(this.returnUrl());
+              return;
+
+            case 'REGISTRATION_REQUIRED':
+              if (!response.profile) {
+                this.error.set('Google no devolvió los datos necesarios.');
+                return;
+              }
+
+              this.beginGoogleRegistration(credential, response.profile);
+              return;
+
+            case 'LINK_CONFIRMATION_REQUIRED':
+              if (!response.profile) {
+                this.error.set('No pudimos identificar la cuenta de Google.');
+                return;
+              }
+
+              this.beginGoogleLink(credential, response.profile);
+              return;
+          }
+        },
+
+        error: (error) => {
+          this.error.set(
+            apiErrorMessage(error, 'No pudimos continuar con Google.'),
+          );
+        },
+      });
+  }
+
+  cancelGoogleFlow(): void {
+    this.googleStatus.set(null);
+    this.googleCredential.set(null);
+    this.googleProfile.set(null);
+    this.googleLinkForm.reset();
+
+    this.setGoogleRegistrationValidators(false);
+
+    this.registerForm.patchValue({
+      email: '',
+      password: '',
+      confirmPassword: '',
+    });
+
+    this.error.set(null);
+  }
+
+  submitGoogleLink(): void {
+    if (this.googleLinkForm.invalid || this.submitting()) {
+      this.googleLinkForm.markAllAsTouched();
+      return;
+    }
+
+    const credential = this.googleCredential();
+
+    if (!credential) {
+      this.error.set('La sesión de Google ya no está disponible.');
+      return;
+    }
+
+    this.submitting.set(true);
+    this.error.set(null);
+
+    this.authSession
+      .linkGoogle({
+        credential,
+        password: this.googleLinkForm.controls.password.value,
+      })
+      .pipe(
+        finalize(() => this.submitting.set(false)),
+        takeUntilDestroyed(this.destroyRef),
+      )
+      .subscribe({
+        next: () => {
+          void this.router.navigateByUrl(this.returnUrl());
+        },
+
+        error: (error) => {
+          this.error.set(
+            apiErrorMessage(error, 'No pudimos vincular tu cuenta con Google.'),
+          );
+        },
+      });
   }
 
   registerFieldError(
@@ -402,5 +539,101 @@ export class AuthPage {
 
   private returnUrl(): string {
     return this.route.snapshot.queryParamMap.get('returnUrl') || '/explore';
+  }
+
+  private beginGoogleRegistration(
+    credential: string,
+    profile: GoogleProfile,
+  ): void {
+    this.googleCredential.set(credential);
+    this.googleProfile.set(profile);
+    this.googleStatus.set('REGISTRATION_REQUIRED');
+
+    this.mode.set('register');
+
+    this.registerForm.patchValue({
+      displayName: profile.displayName ?? '',
+      email: profile.email,
+    });
+
+    this.setGoogleRegistrationValidators(true);
+  }
+
+  private beginGoogleLink(credential: string, profile: GoogleProfile): void {
+    this.googleCredential.set(credential);
+    this.googleProfile.set(profile);
+    this.googleStatus.set('LINK_CONFIRMATION_REQUIRED');
+
+    this.mode.set('login');
+    this.googleLinkForm.reset();
+  }
+
+  private setGoogleRegistrationValidators(enabled: boolean): void {
+    const email = this.registerForm.controls.email;
+    const password = this.registerForm.controls.password;
+    const confirmPassword = this.registerForm.controls.confirmPassword;
+
+    if (enabled) {
+      email.clearValidators();
+      password.clearValidators();
+      confirmPassword.clearValidators();
+    } else {
+      email.setValidators([Validators.required, Validators.email]);
+
+      password.setValidators([
+        Validators.required,
+        Validators.minLength(8),
+        Validators.maxLength(64),
+      ]);
+
+      confirmPassword.setValidators(Validators.required);
+    }
+
+    email.updateValueAndValidity({ emitEvent: false });
+    password.updateValueAndValidity({ emitEvent: false });
+    confirmPassword.updateValueAndValidity({ emitEvent: false });
+  }
+
+  private submitGoogleRegistration(): void {
+    const credential = this.googleCredential();
+
+    if (!credential) {
+      this.error.set('La sesión de Google ya no está disponible.');
+      return;
+    }
+
+    const value = this.registerForm.getRawValue();
+
+    this.submitting.set(true);
+    this.error.set(null);
+
+    this.authSession
+      .registerWithGoogle({
+        credential,
+        username: value.username.trim(),
+        displayName: value.displayName.trim(),
+        birthDate: value.birthDate,
+        role: value.role,
+        bio: value.role === 'CREATOR' ? value.bio.trim() || null : null,
+        specialties: value.role === 'CREATOR' ? value.specialties : [],
+      })
+      .pipe(
+        finalize(() => this.submitting.set(false)),
+        takeUntilDestroyed(this.destroyRef),
+      )
+      .subscribe({
+        next: () => {
+          void this.router.navigateByUrl(this.returnUrl());
+        },
+
+        error: (error) => {
+          this.error.set(
+            apiErrorMessage(
+              error,
+              'No pudimos completar el registro con Google.',
+            ),
+          );
+        },
+      });
   }
 }

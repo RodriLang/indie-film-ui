@@ -3,7 +3,13 @@ import { inject, Injectable, PLATFORM_ID } from '@angular/core';
 import { firstValueFrom, from, Observable, tap } from 'rxjs';
 
 import { AuthApi } from './auth.api';
-import { AuthResponse, LoginRequest } from './auth.models';
+import {
+  AuthResponse,
+  GoogleAuthResponse,
+  GoogleLinkRequest,
+  GoogleRegistrationRequest,
+  LoginRequest,
+} from './auth.models';
 import { AuthStore } from './auth.store';
 
 const REFRESH_LOCK_NAME = 'indie-film-refresh-token';
@@ -18,9 +24,33 @@ export class AuthSessionService {
   private refreshPromise: Promise<AuthResponse> | null = null;
 
   login(request: LoginRequest): Observable<AuthResponse> {
-    return this.authApi.login(request).pipe(
-      tap((response) => this.authStore.setSession(response)),
+    return this.authApi
+      .login(request)
+      .pipe(tap((response) => this.authStore.setSession(response)));
+  }
+
+  continueWithGoogle(credential: string): Observable<GoogleAuthResponse> {
+    return this.authApi.continueWithGoogle(credential).pipe(
+      tap((response) => {
+        if (response.status === 'AUTHENTICATED' && response.auth) {
+          this.authStore.setSession(response.auth);
+        }
+      }),
     );
+  }
+
+  registerWithGoogle(
+    request: GoogleRegistrationRequest,
+  ): Observable<AuthResponse> {
+    return this.authApi
+      .registerWithGoogle(request)
+      .pipe(tap((response) => this.authStore.setSession(response)));
+  }
+
+  linkGoogle(request: GoogleLinkRequest): Observable<AuthResponse> {
+    return this.authApi
+      .linkGoogle(request)
+      .pipe(tap((response) => this.authStore.setSession(response)));
   }
 
   refresh(): Observable<AuthResponse> {
@@ -54,7 +84,9 @@ export class AuthSessionService {
 
   private refreshSession(): Promise<AuthResponse> {
     if (!this.browser) {
-      return Promise.reject(new Error('Refresh is only available in the browser'));
+      return Promise.reject(
+        new Error('Refresh is only available in the browser'),
+      );
     }
 
     if (this.refreshPromise) {
@@ -74,9 +106,8 @@ export class AuthSessionService {
 
   private async withRefreshLock(): Promise<AuthResponse> {
     if ('locks' in navigator && navigator.locks) {
-      return navigator.locks.request(
-        REFRESH_LOCK_NAME,
-        async () => this.executeRefresh(),
+      return navigator.locks.request(REFRESH_LOCK_NAME, async () =>
+        this.executeRefresh(),
       );
     }
 
@@ -86,7 +117,9 @@ export class AuthSessionService {
   private async executeRefresh(): Promise<AuthResponse> {
     try {
       const response = await firstValueFrom(this.authApi.refresh());
+
       this.authStore.setSession(response);
+
       return response;
     } catch (error) {
       this.authStore.clear();

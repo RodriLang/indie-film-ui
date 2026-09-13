@@ -6,6 +6,7 @@
       <button
         type="button"
         [class.active]="mode() === 'login'"
+        [disabled]="submitting()"
         (click)="setMode('login')"
       >
         Entrar
@@ -14,6 +15,7 @@
       <button
         type="button"
         [class.active]="mode() === 'register'"
+        [disabled]="submitting()"
         (click)="setMode('register')"
       >
         Crear cuenta
@@ -22,8 +24,99 @@
 
     @if (mode() === 'login') {
     <div class="auth-heading">
+      @if (googleStatus() === 'LINK_CONFIRMATION_REQUIRED') {
+      <h1>Confirmá tu cuenta.</h1>
+      <p>
+        Necesitamos verificar que la cuenta existente de indie film es tuya.
+      </p>
+      } @else {
       <h1>Volvé a mirar.</h1>
       <p>Entrá para seguir disfrutando indie film.</p>
+      }
+    </div>
+
+    @if (googleStatus() === 'LINK_CONFIRMATION_REQUIRED') { @if
+    (googleProfile(); as profile) {
+    <div class="google-account">
+      <strong>Continuar con Google</strong>
+      <span>{{ profile.email }}</span>
+
+      <p>
+        Ya existe una cuenta de indie film con este email. Ingresá tu contraseña
+        actual una vez para vincularla con Google.
+      </p>
+    </div>
+    }
+
+    <form
+      class="google-link-form"
+      [formGroup]="googleLinkForm"
+      (ngSubmit)="submitGoogleLink()"
+    >
+      <label>
+        <span>Contraseña actual</span>
+
+        <div class="password-field">
+          <input
+            [type]="googleLinkPasswordVisible() ? 'text' : 'password'"
+            formControlName="password"
+            autocomplete="current-password"
+            [attr.aria-invalid]="
+                  googleLinkForm.controls.password.touched &&
+                  googleLinkForm.controls.password.invalid
+                "
+          />
+
+          <button
+            type="button"
+            class="password-toggle"
+            [attr.aria-label]="
+                  googleLinkPasswordVisible()
+                    ? 'Ocultar contraseña'
+                    : 'Mostrar contraseña'
+                "
+            [attr.aria-pressed]="googleLinkPasswordVisible()"
+            (click)="
+                  googleLinkPasswordVisible.update((visible) => !visible)
+                "
+          >
+            @if (googleLinkPasswordVisible()) {
+            <svg lucideEyeOff></svg>
+            } @else {
+            <svg lucideEye></svg>
+            }
+          </button>
+        </div>
+
+        @if ( googleLinkForm.controls.password.touched &&
+        googleLinkForm.controls.password.hasError('required') ) {
+        <small class="field-error"> Ingresá la contraseña de tu cuenta. </small>
+        }
+      </label>
+
+      <button class="submit-button" type="submit" [disabled]="submitting()">
+        {{ submitting() ? 'Vinculando…' : 'Vincular y entrar' }}
+      </button>
+
+      <button
+        class="google-cancel"
+        type="button"
+        [disabled]="submitting()"
+        (click)="cancelGoogleFlow()"
+      >
+        Cancelar
+      </button>
+    </form>
+    } @else {
+    <div class="google-auth">
+      <app-google-sign-in-button
+        [disabled]="submitting()"
+        (credential)="continueWithGoogle($event)"
+      />
+
+      <div class="auth-divider">
+        <span>o continuá con email</span>
+      </div>
     </div>
 
     <form [formGroup]="loginForm" (ngSubmit)="submitLogin()">
@@ -35,9 +128,9 @@
           formControlName="email"
           autocomplete="email"
           [attr.aria-invalid]="
-              loginForm.controls.email.touched &&
-              loginForm.controls.email.invalid
-            "
+                loginForm.controls.email.touched &&
+                loginForm.controls.email.invalid
+              "
         />
 
         @if (loginFieldError('email'); as message) {
@@ -54,21 +147,23 @@
             formControlName="password"
             autocomplete="current-password"
             [attr.aria-invalid]="
-      loginForm.controls.password.touched &&
-      loginForm.controls.password.invalid
-    "
+                  loginForm.controls.password.touched &&
+                  loginForm.controls.password.invalid
+                "
           />
 
           <button
             type="button"
             class="password-toggle"
             [attr.aria-label]="
-      loginPasswordVisible()
-        ? 'Ocultar contraseña'
-        : 'Mostrar contraseña'
-    "
+                  loginPasswordVisible()
+                    ? 'Ocultar contraseña'
+                    : 'Mostrar contraseña'
+                "
             [attr.aria-pressed]="loginPasswordVisible()"
-            (click)="loginPasswordVisible.update((visible) => !visible)"
+            (click)="
+                  loginPasswordVisible.update((visible) => !visible)
+                "
           >
             @if (loginPasswordVisible()) {
             <svg lucideEyeOff></svg>
@@ -83,21 +178,42 @@
         }
       </label>
 
-      <a class="forgot-link" routerLink="/forgot-password"
-        >¿Olvidaste tu contraseña?</a
-      >
+      <a class="forgot-link" routerLink="/forgot-password">
+        ¿Olvidaste tu contraseña?
+      </a>
 
       <button class="submit-button" type="submit" [disabled]="submitting()">
         {{ submitting() ? 'Entrando…' : 'Entrar' }}
       </button>
     </form>
-    } @else {
+    } } @else {
     <div class="auth-heading">
+      @if (googleStatus() === 'REGISTRATION_REQUIRED') {
+      <h1>Terminemos tu cuenta.</h1>
+      <p>
+        Google ya verificó tu identidad. Solo necesitamos algunos datos para
+        crear tu perfil en indie film.
+      </p>
+      } @else {
       <h1>Tu lugar en indie film.</h1>
       <p>
         Creá tu cuenta para descubrir producciones o publicar tu propio trabajo.
       </p>
+      }
     </div>
+
+    @if (googleStatus() !== 'REGISTRATION_REQUIRED') {
+    <div class="google-auth">
+      <app-google-sign-in-button
+        [disabled]="submitting()"
+        (credential)="continueWithGoogle($event)"
+      />
+
+      <div class="auth-divider">
+        <span>o registrate con email</span>
+      </div>
+    </div>
+    }
 
     <form [formGroup]="registerForm" (ngSubmit)="submitRegister()">
       <label>
@@ -136,6 +252,18 @@
         }
       </label>
 
+      @if ( googleStatus() === 'REGISTRATION_REQUIRED' && googleProfile(); as
+      profile ) {
+      <div class="google-account">
+        <strong>Cuenta de Google</strong>
+        <span>{{ profile.email }}</span>
+
+        <p>
+          Este email ya fue verificado por Google y quedará asociado a tu cuenta
+          de indie film.
+        </p>
+      </div>
+      } @else {
       <label>
         <span>Email</span>
 
@@ -144,15 +272,16 @@
           formControlName="email"
           autocomplete="email"
           [attr.aria-invalid]="
-              registerForm.controls.email.touched &&
-              registerForm.controls.email.invalid
-            "
+                registerForm.controls.email.touched &&
+                registerForm.controls.email.invalid
+              "
         />
 
         @if (registerFieldError('email'); as message) {
         <small class="field-error">{{ message }}</small>
         }
       </label>
+      }
 
       <label>
         <span>Fecha de nacimiento</span>
@@ -191,7 +320,9 @@
             type="button"
             [class.active]="registerForm.controls.role.value === 'CREATOR'"
             [disabled]="!canRegisterAsCreator()"
-            [attr.aria-pressed]="registerForm.controls.role.value === 'CREATOR'"
+            [attr.aria-pressed]="
+                registerForm.controls.role.value === 'CREATOR'
+              "
             (click)="setRegistrationRole('CREATOR')"
           >
             <strong>Quiero crear</strong>
@@ -228,7 +359,8 @@
           <span class="field-label">Especialidades</span>
 
           <div class="specialty-options">
-            @for (specialty of creatorSpecialtyOptions; track specialty.value) {
+            @for ( specialty of creatorSpecialtyOptions; track specialty.value )
+            {
             <button
               type="button"
               class="specialty-chip"
@@ -241,8 +373,7 @@
           </div>
         </div>
       </div>
-      }
-
+      } @if (googleStatus() !== 'REGISTRATION_REQUIRED') {
       <label>
         <span>Contraseña</span>
 
@@ -251,15 +382,24 @@
             [type]="registerPasswordVisible() ? 'text' : 'password'"
             formControlName="password"
             autocomplete="new-password"
-            [attr.aria-invalid]="registerForm.controls.password.touched && registerForm.controls.password.invalid"
+            [attr.aria-invalid]="
+                  registerForm.controls.password.touched &&
+                  registerForm.controls.password.invalid
+                "
           />
 
           <button
             type="button"
             class="password-toggle"
-            [attr.aria-label]="registerPasswordVisible() ? 'Ocultar contraseña' : 'Mostrar contraseña'"
+            [attr.aria-label]="
+                  registerPasswordVisible()
+                    ? 'Ocultar contraseña'
+                    : 'Mostrar contraseña'
+                "
             [attr.aria-pressed]="registerPasswordVisible()"
-            (click)="registerPasswordVisible.update((visible) => !visible)"
+            (click)="
+                  registerPasswordVisible.update((visible) => !visible)
+                "
           >
             @if (registerPasswordVisible()) {
             <svg lucideEyeOff></svg>
@@ -282,15 +422,27 @@
             [type]="registerPasswordVisible() ? 'text' : 'password'"
             formControlName="confirmPassword"
             autocomplete="new-password"
-            [attr.aria-invalid]="registerForm.controls.confirmPassword.touched &&(
-              registerForm.controls.confirmPassword.invalid || registerForm.hasError('passwordsMismatch'))"
+            [attr.aria-invalid]="
+                  registerForm.controls.confirmPassword.touched &&
+                  (
+                    registerForm.controls.confirmPassword.invalid ||
+                    registerForm.hasError('passwordsMismatch')
+                  )
+                "
           />
 
           <button
             type="button"
             class="password-toggle"
-            [attr.aria-label]="registerPasswordVisible() ? 'Ocultar contraseña' : 'Mostrar contraseña'"
-            (click)="registerPasswordVisible.update((visible) => !visible)"
+            [attr.aria-label]="
+                  registerPasswordVisible()
+                    ? 'Ocultar contraseña'
+                    : 'Mostrar contraseña'
+                "
+            [attr.aria-pressed]="registerPasswordVisible()"
+            (click)="
+                  registerPasswordVisible.update((visible) => !visible)
+                "
           >
             @if (registerPasswordVisible()) {
             <svg lucideEyeOff></svg>
@@ -305,10 +457,24 @@
         <small class="field-error"> Las contraseñas no coinciden. </small>
         }
       </label>
+      }
 
       <button class="submit-button" type="submit" [disabled]="submitting()">
-        {{ submitting() ? 'Creando…' : 'Crear cuenta' }}
+        @if (submitting()) { Creando… } @else if (googleStatus() ===
+        'REGISTRATION_REQUIRED') { Crear cuenta con Google } @else { Crear
+        cuenta }
       </button>
+
+      @if (googleStatus() === 'REGISTRATION_REQUIRED') {
+      <button
+        class="google-cancel"
+        type="button"
+        [disabled]="submitting()"
+        (click)="cancelGoogleFlow()"
+      >
+        Usar email y contraseña
+      </button>
+      }
     </form>
     } @if (error()) {
     <p class="form-error">{{ error() }}</p>

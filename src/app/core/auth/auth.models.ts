@@ -3,6 +3,38 @@ import { CreatorSpecialty } from '../../features/user/data/creator.models';
 export type UserRole = 'USER' | 'CREATOR' | 'MODERATOR' | 'ADMIN';
 export type RegistrationRole = 'USER' | 'CREATOR';
 
+export type GoogleAuthStatus =
+  | 'AUTHENTICATED'
+  | 'REGISTRATION_REQUIRED'
+  | 'LINK_CONFIRMATION_REQUIRED';
+
+export interface GoogleProfile {
+  email: string;
+  displayName: string | null;
+  avatarUrl: string | null;
+}
+
+export interface GoogleAuthResponse {
+  status: GoogleAuthStatus;
+  auth: AuthResponse | null;
+  profile: GoogleProfile | null;
+}
+
+export interface GoogleRegistrationRequest {
+  credential: string;
+  username: string;
+  displayName: string;
+  birthDate: string;
+  role: RegistrationRole;
+  bio: string | null;
+  specialties: string[];
+}
+
+export interface GoogleLinkRequest {
+  credential: string;
+  password: string;
+}
+
 export interface CurrentUser {
   id: number;
   email: string;
@@ -70,13 +102,16 @@ export interface UpdateMyProfileRequest {
   specialties: CreatorSpecialty[];
 }
 
-export const USER_ROLE_OPTIONS: readonly { value: UserRole; label: string }[] = [
-  { value: 'USER', label: 'Usuario' },
-  { value: 'CREATOR', label: 'Creador' },
-  { value: 'MODERATOR', label: 'Moderador' },
-  { value: 'ADMIN', label: 'Administrador' },
-];
+export const USER_ROLE_OPTIONS: readonly { value: UserRole; label: string }[] =
+  [
+    { value: 'USER', label: 'Usuario' },
+    { value: 'CREATOR', label: 'Creador' },
+    { value: 'MODERATOR', label: 'Moderador' },
+    { value: 'ADMIN', label: 'Administrador' },
+  ];
 
 export function userRoleLabel(role: UserRole): string {
-  return USER_ROLE_OPTIONS.find((option) => option.value === role)?.label ?? role;
+  return (
+    USER_ROLE_OPTIONS.find((option) => option.value === role)?.label ?? role
+  );
 }
