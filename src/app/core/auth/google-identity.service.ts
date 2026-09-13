@@ -16,12 +16,12 @@ interface GoogleIdConfiguration {
 
 interface GoogleButtonConfiguration {
   type?: 'standard' | 'icon';
-  theme?: 'outline' | 'filled_blue' | 'filled_black';
+  theme?: 'outline' | 'filled_blue' | 'filled_black' | 'outline_dark';
   size?: 'large' | 'medium' | 'small';
   text?: 'signin_with' | 'signup_with' | 'continue_with' | 'signin';
   shape?: 'rectangular' | 'pill' | 'circle' | 'square';
   logo_alignment?: 'left' | 'center';
-  width?: number;
+  width?: string;
   locale?: string;
 }
 
@@ -76,17 +76,18 @@ export class GoogleIdentityService {
 
     container.replaceChildren();
 
-    const availableWidth = Math.floor(container.getBoundingClientRect().width);
+    const availableWidth = Math.min(
+      400,
+      Math.floor(container.getBoundingClientRect().width),
+    );
 
     google.renderButton(container, {
       type: 'standard',
-      theme: 'filled_black',
-      size: 'medium',
+      theme: 'outline_dark',
+      size: 'large',
       text: 'continue_with',
       shape: 'pill',
-      logo_alignment: 'left',
-      locale: 'es',
-      width: Math.min(400, availableWidth),
+      width: String(availableWidth),
     });
   }
 
@@ -125,7 +126,7 @@ export class GoogleIdentityService {
 
       const script = document.createElement('script');
 
-      script.src = 'https://accounts.google.com/gsi/client';
+      script.src = 'https://accounts.google.com/gsi/client?hl=es';
       script.async = true;
       script.defer = true;
       script.dataset['googleIdentity'] = 'true';

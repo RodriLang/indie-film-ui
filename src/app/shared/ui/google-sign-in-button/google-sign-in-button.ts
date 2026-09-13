@@ -15,7 +15,7 @@ import { GoogleIdentityService } from '../../../core/auth/google-identity.servic
 @Component({
   selector: 'app-google-sign-in-button',
   template: `
-    <div class="google-button-shell" [class.disabled]="disabled()">
+    <div class="google-button" [class.disabled]="disabled()">
       <div #buttonHost class="google-button-host"></div>
     </div>
   `,
@@ -25,54 +25,21 @@ import { GoogleIdentityService } from '../../../core/auth/google-identity.servic
       width: 100%;
     }
 
-    .google-button-shell {
+    .google-button {
       width: 100%;
-      height: 48px;
-      padding: 4px;
-      box-sizing: border-box;
-
-      border: 1px solid var(--color-border-strong);
-      border-radius: var(--radius-md);
-      background: #202124;
-
       display: flex;
-      align-items: center;
       justify-content: center;
-
-      overflow: hidden;
     }
 
     .google-button-host {
       width: 100%;
-      height: 100%;
-
-      position: relative;
-
-      border-radius: 999px;
-      background: #202124;
-      overflow: hidden;
-
-      display: flex;
-      align-items: center;
-      justify-content: center;
+      min-height: 40px;
+      color-scheme: light;
     }
 
-    .google-button-host::after {
-      content: '';
-
-      position: absolute;
-      inset: 0;
-      z-index: 2;
-
-      border-radius: 999px;
-      box-shadow: inset 0 0 0 2px #202124;
-
+    .google-button.disabled {
       pointer-events: none;
-    }
-
-    .google-button-shell.disabled {
       opacity: 0.55;
-      pointer-events: none;
     }
   `,
   changeDetection: ChangeDetectionStrategy.OnPush,
