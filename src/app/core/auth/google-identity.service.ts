@@ -76,9 +76,7 @@ export class GoogleIdentityService {
 
     container.replaceChildren();
 
-    const availableWidth = Math.floor(
-      container.parentElement?.getBoundingClientRect().width ?? 400,
-    );
+    const availableWidth = Math.floor(container.getBoundingClientRect().width);
 
     google.renderButton(container, {
       type: 'standard',

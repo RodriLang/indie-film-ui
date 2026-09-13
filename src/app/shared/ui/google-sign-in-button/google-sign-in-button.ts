@@ -16,9 +16,7 @@ import { GoogleIdentityService } from '../../../core/auth/google-identity.servic
   selector: 'app-google-sign-in-button',
   template: `
     <div class="google-button-shell" [class.disabled]="disabled()">
-      <div class="google-button-crop">
-        <div #buttonHost class="google-button-host"></div>
-      </div>
+      <div #buttonHost class="google-button-host"></div>
     </div>
   `,
   styles: `
@@ -30,51 +28,51 @@ import { GoogleIdentityService } from '../../../core/auth/google-identity.servic
     .google-button-shell {
       width: 100%;
       height: 48px;
-
-      padding: 3px;
+      padding: 4px;
+      box-sizing: border-box;
 
       border: 1px solid var(--color-border-strong);
       border-radius: var(--radius-md);
-
-      background: var(--color-surface-1);
-
-      display: flex;
-      align-items: center;
-      justify-content: center;
-
-      overflow: hidden;
-      cursor: pointer;
-    }
-
-    .google-button-crop {
-      width: 100%;
-      height: 40px;
-
-      border-radius: calc(var(--radius-md) - 3px);
-      overflow: hidden;
-
-      display: flex;
-      align-items: center;
-      justify-content: center;
-
       background: #202124;
+
+      display: flex;
+      align-items: center;
+      justify-content: center;
+
+      overflow: hidden;
     }
 
     .google-button-host {
-      width: calc(100% + 8px);
-      height: 46px;
+      width: 100%;
+      height: 100%;
 
-      margin: -3px -4px;
+      position: relative;
+
+      border-radius: 999px;
+      background: #202124;
+      overflow: hidden;
 
       display: flex;
       align-items: center;
       justify-content: center;
+    }
+
+    .google-button-host::after {
+      content: '';
+
+      position: absolute;
+      inset: 0;
+      z-index: 2;
+
+      border-radius: 999px;
+      box-shadow: inset 0 0 0 2px #202124;
+
+      pointer-events: none;
     }
 
     .google-button-shell.disabled {
       opacity: 0.55;
       pointer-events: none;
-      cursor: default;
     }
   `,
   changeDetection: ChangeDetectionStrategy.OnPush,
