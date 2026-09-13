@@ -15,11 +15,9 @@ import { GoogleIdentityService } from '../../../core/auth/google-identity.servic
 @Component({
   selector: 'app-google-sign-in-button',
   template: `
-    <div
-      #buttonHost
-      class="google-button-host"
-      [class.disabled]="disabled()"
-    ></div>
+    <div class="google-button-shell" [class.disabled]="disabled()">
+      <div #buttonHost class="google-button-host"></div>
+    </div>
   `,
   styles: `
     :host {
@@ -27,14 +25,22 @@ import { GoogleIdentityService } from '../../../core/auth/google-identity.servic
       width: 100%;
     }
 
-    .google-button-host {
+    .google-button-shell {
       width: 100%;
-      min-height: 44px;
-      display: flex;
-      justify-content: center;
+      height: 40px;
+      border-radius: 999px;
+      overflow: hidden;
+      position: relative;
+      background: #202124;
     }
 
-    .google-button-host.disabled {
+    .google-button-host {
+      width: 100%;
+      height: 40px;
+      overflow: hidden;
+    }
+
+    .google-button-shell.disabled {
       opacity: 0.55;
       pointer-events: none;
     }
